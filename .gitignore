@@ -1,0 +1,66 @@
+# =========================
+# 1. Environment Variables
+# =========================
+# Never commit credentials, even for local databases.
+.env
+
+# =========================
+# 2. Data & Databases
+# =========================
+# Ignore scraped files, processed JSONs, and the local vector database.
+# Committing these will bloat the repository.
+data/raw/
+data/processed/
+data/chroma_db/
+*.pdf
+*.json
+
+# Keep the empty directory structure for data/ground_truth if needed:
+# !data/ground_truth/.gitkeep
+
+# =========================
+# 3. Python & Virtual Environments
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Package distributions
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# =========================
+# 4. Jupyter Notebooks
+# =========================
+.ipynb_checkpoints
+
+# =========================
+# 5. OS & IDE 
+# =========================
+# macOS specific
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE specific
+.vscode/
+.idea/
+*.swp
+*.swo
