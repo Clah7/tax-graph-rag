@@ -1,136 +1,271 @@
-import os
 import json
-import time
+import logging
+import os
 import random
-import requests
+import re
+import time
 from urllib.parse import urljoin
-from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
 
-# --- Configuration ---
-TARGET_URL = "https://jdih.kemenkeu.go.id/in/dokumen/peraturan" # Replace with specific search/filter URL
-BASE_URL = "https://jdih.kemenkeu.go.id"
-JSON_OUTPUT = "metadata.json"
-PDF_DIR = "data/raw_pdfs"
-MAX_PAGES = 5  
+import requests
+from playwright.sync_api import Page, sync_playwright, TimeoutError as PlaywrightTimeoutError
 
-# --- Selectors (Must be verified against the live target DOM) ---
-ROW_SELECTOR = "table tbody tr"
-TITLE_SEL = "td:nth-child(2)" 
-NOMOR_SEL = "td:nth-child(3)"
-TAHUN_SEL = "td:nth-child(4)"
-JENIS_SEL = "td:nth-child(5)"
-STATUS_SEL = "td:nth-child(6)"
-LINK_SEL = "td:nth-child(7) a"
-NEXT_BTN_SEL = "a.next.page-numbers, button.next"
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+)
+logger = logging.getLogger(__name__)
 
-def setup_directories():
-    if not os.path.exists(PDF_DIR):
-        os.makedirs(PDF_DIR)
+# ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
+BASE_URL: str = "https://jdih.kemenkeu.go.id"
+TARGET_URL: str = (
+    "https://jdih.kemenkeu.go.id/search"
+    "?teu=Kementerian+Keuangan"
+    "&bentuk=Peraturan+Menteri"
+    "&order=desc"
+    "&bentuk=Undang-Undang"
+    "&bentuk=Peraturan+Pemerintah"
+    "&bentuk=Peraturan+Pemerintah+Pengganti+Undang-Undang"
+    "&bentuk=Peraturan+Unit+Eselon+I"
+    "&teu=Indonesia"
+    "&teu=Direktorat+Jenderal+Pajak"
+    "&bentuk=Keputusan+Unit+Eselon+I"
+)
+JSON_OUTPUT: str = "jdih_metadata.json"
+PDF_DIR: str = "data/raw_pdfs"
+MAX_PAGES: int = 1  # Hardcoded for testing
 
-def random_delay(min_sec=1.0, max_sec=3.0):
+# ---------------------------------------------------------------------------
+# Selectors (verified against live DOM — card-based layout, not a table)
+# ---------------------------------------------------------------------------
+ROW_SEL: str = "div.jdih-search"
+REGULATION_NUMBER_SEL: str = "h5.item a"     # text: "PMK 18 TAHUN 2026"
+DETAIL_LINK_SEL: str = "h5.item a"           # href: "/dok/pmk-18-tahun-2026"
+DESCRIPTION_SEL: str = "p.item"
+CATEGORY_SEL: str = "div.search-label.item"  # topic labels, e.g. "PAJAK | KEUANGAN NEGARA"
+DATES_SEL: str = "ul.search-meta li"         # [0] Ditetapkan, [1] Diundangkan
+NEXT_BTN_SEL: str = "ul.jdih-pagination li.page-items:last-child a.page-links"
+
+# PDF links on detail pages follow this pattern:
+# /api/download/{uuid}/{filename}.pdf
+_PDF_RE: re.Pattern[str] = re.compile(r'/api/download/[^"\'<>\s]+\.pdf', re.IGNORECASE)
+
+_HEADERS: dict[str, str] = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36"
+    )
+}
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+def _setup_directories() -> None:
+    os.makedirs(PDF_DIR, exist_ok=True)
+
+
+def _random_delay(min_sec: float = 1.0, max_sec: float = 3.0) -> None:
     time.sleep(random.uniform(min_sec, max_sec))
 
-def download_pdf(url, filename):
-    """Downloads PDF using requests with standard headers."""
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    }
-    filepath = os.path.join(PDF_DIR, filename)
-    
-    try:
-        response = requests.get(url, headers=headers, stream=True, timeout=15)
-        response.raise_for_status()
-        with open(filepath, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                f.write(chunk)
-        print(f"[+] Downloaded: {filename}")
-    except requests.exceptions.RequestException as e:
-        print(f"[-] Failed to download {url}: {e}")
 
-def scrape_data():
-    setup_directories()
-    metadata = []
+def _clean_date(raw: str) -> str:
+    """Strip Indonesian date prefixes and non-breaking spaces."""
+    return (
+        raw.replace("Ditetapkan:\xa0", "")
+           .replace("Diundangkan:\xa0", "")
+           .replace("Ditetapkan:", "")
+           .replace("Diundangkan:", "")
+           .strip()
+    )
+
+
+def _safe_filename(regulation_number: str) -> str:
+    return re.sub(r'[^\w\-.]', '_', regulation_number) + ".pdf"
+
+
+def _get_pdf_url(detail_url: str) -> str | None:
+    """
+    Fetch the regulation detail page with requests and extract the first
+    /api/download/...pdf URL found in the HTML.
+    Does NOT use Playwright — keeps browser sessions lean.
+    """
+    try:
+        resp = requests.get(detail_url, headers=_HEADERS, timeout=15)
+        resp.raise_for_status()
+        match = _PDF_RE.search(resp.text)
+        if match:
+            return urljoin(BASE_URL, match.group(0))
+        logger.warning("No PDF link found on detail page: %s", detail_url)
+        return None
+    except requests.exceptions.RequestException as exc:
+        logger.warning("Could not fetch detail page %s: %s", detail_url, exc)
+        return None
+
+
+def _download_pdf(url: str, filename: str) -> None:
+    """Stream a PDF from *url* to PDF_DIR/<filename> using requests."""
+    filepath = os.path.join(PDF_DIR, filename)
+    try:
+        resp = requests.get(url, headers=_HEADERS, stream=True, timeout=30)
+        resp.raise_for_status()
+        with open(filepath, "wb") as fh:
+            for chunk in resp.iter_content(chunk_size=8192):
+                fh.write(chunk)
+        logger.info("Downloaded: %s", filename)
+    except requests.exceptions.RequestException as exc:
+        logger.error("Failed to download %s — %s", url, exc)
+
+
+# ---------------------------------------------------------------------------
+# Row extraction
+# ---------------------------------------------------------------------------
+def _extract_row(card, base_url: str) -> dict[str, str | None] | None:
+    """
+    Extract metadata from a single div.jdih-search card.
+    Returns None on failure so the caller can skip gracefully.
+    """
+    try:
+        regulation_number: str = (
+            card.locator(REGULATION_NUMBER_SEL).inner_text(timeout=2000).strip()
+        )
+        description: str = card.locator(DESCRIPTION_SEL).inner_text(timeout=2000).strip()
+        category: str = card.locator(CATEGORY_SEL).inner_text(timeout=2000).strip()
+
+        href: str | None = card.locator(DETAIL_LINK_SEL).get_attribute("href")
+        detail_url: str | None = urljoin(base_url, href) if href else None
+
+        # Year is encoded in the regulation number: "PMK 18 TAHUN 2026"
+        year_match = re.search(r'TAHUN\s+(\d{4})', regulation_number, re.IGNORECASE)
+        year: str | None = year_match.group(1) if year_match else None
+
+        # Date metadata: first li = Ditetapkan, second = Diundangkan
+        date_lis = card.locator(DATES_SEL).all()
+        date_enacted: str | None = (
+            _clean_date(date_lis[0].inner_text(timeout=1000)) if date_lis else None
+        )
+        date_promulgated: str | None = (
+            _clean_date(date_lis[1].inner_text(timeout=1000)) if len(date_lis) > 1 else None
+        )
+
+        return {
+            "regulation_number": regulation_number,
+            "title": description,
+            "year": year,
+            "category": category,
+            "date_enacted": date_enacted,
+            "date_promulgated": date_promulgated,
+            "detail_url": detail_url,
+        }
+    except Exception as exc:
+        logger.warning("Skipping card due to parse error: %s", exc)
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Page scraping
+# ---------------------------------------------------------------------------
+def _scrape_page(page: Page, page_num: int) -> list[dict[str, str | None]]:
+    """Wait for cards to appear then extract and enrich every card on the page."""
+    logger.info("Scraping page %d…", page_num)
+    try:
+        page.wait_for_selector(ROW_SEL, timeout=15000)
+    except PlaywrightTimeoutError:
+        logger.warning("No result cards found on page %d — stopping.", page_num)
+        return []
+
+    cards = page.locator(ROW_SEL).all()
+    records: list[dict[str, str | None]] = []
+
+    for card in cards:
+        record = _extract_row(card, BASE_URL)
+        if record is None:
+            continue
+
+        # Resolve the actual PDF URL from the detail page (via requests, not Playwright)
+        if record["detail_url"]:
+            pdf_url = _get_pdf_url(record["detail_url"])
+            record["pdf_url"] = pdf_url
+            if pdf_url:
+                _download_pdf(pdf_url, _safe_filename(record["regulation_number"]))
+        else:
+            record["pdf_url"] = None
+
+        records.append(record)
+        _random_delay(0.5, 1.5)  # Courtesy delay between detail-page requests
+
+    logger.info("Page %d — extracted %d records.", page_num, len(records))
+    return records
+
+
+def _go_to_next_page(page: Page) -> bool:
+    """Click the next-page arrow. Returns False when pagination is exhausted."""
+    next_btn = page.locator(NEXT_BTN_SEL)
+    if next_btn.count() == 0:
+        logger.info("Pagination element not found — done.")
+        return False
+    if next_btn.get_attribute("aria-disabled") == "true":
+        logger.info("Next page button is disabled — pagination complete.")
+        return False
+
+    try:
+        next_btn.click()
+        page.wait_for_load_state("networkidle")
+        _random_delay(1.5, 3.5)
+        return True
+    except Exception as exc:
+        logger.error("Failed to navigate to next page: %s", exc)
+        return False
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+def scrape_jdih() -> None:
+    _setup_directories()
+    metadata: list[dict[str, str | None]] = []
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         context = browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            viewport={"width": 1920, "height": 1080}
+            user_agent=_HEADERS["User-Agent"],
+            viewport={"width": 1920, "height": 1080},
         )
         page = context.new_page()
 
+        logger.info("Navigating to %s", TARGET_URL)
         try:
-            print(f"Navigating to {TARGET_URL}...")
             page.goto(TARGET_URL, wait_until="networkidle", timeout=30000)
         except PlaywrightTimeoutError:
-            print("[-] Timeout loading the initial page.")
+            logger.error("Timeout loading the initial page. Aborting.")
             browser.close()
             return
 
         for current_page in range(1, MAX_PAGES + 1):
-            print(f"Scraping Page {current_page}...")
-            try:
-                # Wait for the table rows to be visible
-                page.wait_for_selector(ROW_SELECTOR, timeout=10000)
-            except PlaywrightTimeoutError:
-                print(f"[-] No data rows found on page {current_page}. Exiting loop.")
+            page_records = _scrape_page(page, current_page)
+            metadata.extend(page_records)
+
+            if not page_records:
                 break
 
-            rows = page.locator(ROW_SELECTOR).all()
-            for row in rows:
-                try:
-                    title = row.locator(TITLE_SEL).inner_text(timeout=2000).strip()
-                    nomor = row.locator(NOMOR_SEL).inner_text(timeout=2000).strip()
-                    tahun = row.locator(TAHUN_SEL).inner_text(timeout=2000).strip()
-                    jenis = row.locator(JENIS_SEL).inner_text(timeout=2000).strip()
-                    status = row.locator(STATUS_SEL).inner_text(timeout=2000).strip()
-                    
-                    link_locator = row.locator(LINK_SEL)
-                    href = link_locator.get_attribute("href") if link_locator.count() > 0 else None
-                    
-                    pdf_url = urljoin(BASE_URL, href) if href else None
-
-                    item = {
-                        "title": title,
-                        "regulation_number": nomor,
-                        "year": tahun,
-                        "category": jenis,
-                        "status": status,
-                        "url": pdf_url
-                    }
-                    metadata.append(item)
-
-                    if pdf_url:
-                        safe_filename = f"{jenis.replace(' ', '_')}_{nomor.replace('/', '_')}_{tahun}.pdf"
-                        download_pdf(pdf_url, safe_filename)
-
-                except Exception as e:
-                    print(f"[-] Error parsing a row: {e}")
-                    continue
-
-            # Check for pagination
-            next_button = page.locator(NEXT_BTN_SEL)
-            if next_button.count() > 0 and next_button.is_visible() and next_button.is_enabled():
-                print("Navigating to next page...")
-                try:
-                    next_button.click()
-                    random_delay()
-                    page.wait_for_load_state("networkidle")
-                except Exception as e:
-                    print(f"[-] Failed to navigate to next page: {e}")
+            if current_page < MAX_PAGES:
+                if not _go_to_next_page(page):
                     break
-            else:
-                print("No more pages found.")
-                break
-
-            random_delay(1.5, 3.5)
 
         browser.close()
 
-    # Save Metadata
-    with open(JSON_OUTPUT, 'w', encoding='utf-8') as f:
-        json.dump(metadata, f, indent=4, ensure_ascii=False)
-    print(f"\n[+] Scraping complete. Metadata saved to {JSON_OUTPUT}")
+    with open(JSON_OUTPUT, "w", encoding="utf-8") as fh:
+        json.dump(metadata, fh, indent=4, ensure_ascii=False)
+
+    logger.info(
+        "Scraping complete. %d records saved to %s", len(metadata), JSON_OUTPUT
+    )
+
 
 if __name__ == "__main__":
-    scrape_data()
+    scrape_jdih()

@@ -3,7 +3,7 @@
 # =========================
 # Never commit credentials, even for local databases.
 .env
-
+CLAUDE.md
 # =========================
 # 2. Data & Databases
 # =========================
