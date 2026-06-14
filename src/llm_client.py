@@ -2,7 +2,7 @@
 llm_client.py — Thin wrappers around Ollama for embedding and text generation.
 """
 import requests
-from src.config import OLLAMA_BASE_URL, EMBED_MODEL, LLM_MODEL
+from src.config import OLLAMA_BASE_URL, EMBED_MODEL, LLM_MODEL, LLM_NUM_CTX
 
 
 def embed(texts: list[str]) -> list[list[float]]:
@@ -28,7 +28,13 @@ def generate(prompt: str, system: str = "") -> str:
 
     resp = requests.post(
         f"{OLLAMA_BASE_URL}/api/chat",
-        json={"model": LLM_MODEL, "messages": messages, "stream": False},
+        json={
+            "model": LLM_MODEL,
+            "messages": messages,
+            "stream": False,
+            "think": False,
+            "options": {"num_ctx": LLM_NUM_CTX},
+        },
         timeout=300,
     )
     resp.raise_for_status()

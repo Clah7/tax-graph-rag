@@ -3,6 +3,8 @@ retriever.py — Two-stage GraphRAG retrieval.
 
 Stage 1 — Vector search (ChromaDB):
     Embed the query and find the top-K semantically similar articles.
+    Delegated to src.vector_search so the step is bit-for-bit identical
+    to BaselineRAG.
 
 Stage 2 — Graph expansion (Neo4j):
     Starting from those seed articles, follow REFERENCES edges up to
@@ -10,23 +12,19 @@ Stage 2 — Graph expansion (Neo4j):
 
 Returns a deduplicated, ranked list of article dicts ready for the generator.
 """
-import json
 import logging
 from typing import Any
 
-import chromadb
 from neo4j import GraphDatabase
 
-from src import llm_client
 from src.config import (
-    CHROMA_DIR,
-    CHROMA_COLLECTION,
+    GRAPH_HOP_DEPTH,
+    NEO4J_PASSWORD,
     NEO4J_URI,
     NEO4J_USER,
-    NEO4J_PASSWORD,
     TOP_K_VECTOR,
-    GRAPH_HOP_DEPTH,
 )
+from src.vector_search import vector_search
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +34,7 @@ def retrieve(query: str, top_k: int = TOP_K_VECTOR, hop_depth: int = GRAPH_HOP_D
     Returns a list of article dicts, each with keys:
         id, regulation_id, article_number, text, source ("vector" | "graph")
     """
-    seed_articles = _vector_search(query, top_k)
+    seed_articles = vector_search(query, top_k)
     seed_ids = [a["id"] for a in seed_articles]
     logger.info("Vector search returned %d seed articles: %s", len(seed_ids), seed_ids)
 
@@ -44,40 +42,6 @@ def retrieve(query: str, top_k: int = TOP_K_VECTOR, hop_depth: int = GRAPH_HOP_D
     logger.info("Graph expansion added %d more articles.", len(expanded_articles))
 
     return _merge_results(seed_articles, expanded_articles)
-
-
-# ---------------------------------------------------------------------------
-# Stage 1: vector search
-# ---------------------------------------------------------------------------
-def _vector_search(query: str, top_k: int) -> list[dict[str, Any]]:
-    query_embedding = llm_client.embed([query])[0]
-
-    client = chromadb.PersistentClient(path=CHROMA_DIR)
-    collection = client.get_collection(CHROMA_COLLECTION)
-
-    results = collection.query(
-        query_embeddings=[query_embedding],
-        n_results=top_k,
-        include=["documents", "metadatas", "distances"],
-    )
-
-    articles = []
-    for doc, meta, dist in zip(
-        results["documents"][0],
-        results["metadatas"][0],
-        results["distances"][0],
-    ):
-        articles.append({
-            "id": f"{meta['regulation_id']}::{meta['article_number']}",
-            "regulation_id": meta["regulation_id"],
-            "article_number": meta["article_number"],
-            "text": doc,
-            "references": json.loads(meta.get("references", "[]")),
-            "score": 1.0 - dist,  # cosine similarity
-            "source": "vector",
-        })
-
-    return articles
 
 
 # ---------------------------------------------------------------------------

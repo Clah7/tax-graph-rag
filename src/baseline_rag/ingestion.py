@@ -104,10 +104,17 @@ def ingest(
     collection_name: str = COLLECTION_NAME,
     batch_size: int = BATCH_SIZE,
 ) -> None:
-    # 1. Load articles
+    # 1. Load articles and deduplicate by ID (keep last occurrence)
     with open(articles_path, encoding="utf-8") as fh:
-        articles: list[dict[str, Any]] = json.load(fh)
-    logger.info("Loaded %d articles from '%s'.", len(articles), articles_path)
+        raw_articles: list[dict[str, Any]] = json.load(fh)
+    logger.info("Loaded %d articles from '%s'.", len(raw_articles), articles_path)
+
+    seen: dict[str, dict[str, Any]] = {}
+    for a in raw_articles:
+        seen[_make_doc_id(a["regulation_id"], a["article_number"])] = a
+    articles = list(seen.values())
+    if len(articles) < len(raw_articles):
+        logger.info("Deduplicated %d → %d unique articles.", len(raw_articles), len(articles))
 
     # 2. Open / create ChromaDB collection
     collection = _get_collection(chroma_dir, collection_name)
@@ -118,12 +125,15 @@ def ingest(
     )
 
     # 3. Skip articles whose IDs are already in the collection
+    #    Query in small batches to avoid ChromaDB limits
     all_ids = [_make_doc_id(a["regulation_id"], a["article_number"]) for a in articles]
+    existing_ids: set[str] = set()
     if existing_count > 0:
-        existing = collection.get(ids=all_ids, include=[])
-        existing_ids: set[str] = set(existing["ids"])
-    else:
-        existing_ids = set()
+        CHECK_BATCH = 500
+        for i in range(0, len(all_ids), CHECK_BATCH):
+            chunk = all_ids[i: i + CHECK_BATCH]
+            result = collection.get(ids=chunk, include=[])
+            existing_ids.update(result["ids"])
 
     pending = [a for a, doc_id in zip(articles, all_ids) if doc_id not in existing_ids]
     if not pending:

@@ -37,7 +37,7 @@ TARGET_URL: str = (
 )
 JSON_OUTPUT: str = "jdih_metadata.json"
 PDF_DIR: str = "data/raw_pdfs"
-MAX_PAGES: int = 1  # Hardcoded for testing
+MAX_PAGES: int = 9999  # Runs until pagination is exhausted
 
 # ---------------------------------------------------------------------------
 # Selectors (verified against live DOM — card-based layout, not a table)
@@ -50,9 +50,18 @@ CATEGORY_SEL: str = "div.search-label.item"  # topic labels, e.g. "PAJAK | KEUAN
 DATES_SEL: str = "ul.search-meta li"         # [0] Ditetapkan, [1] Diundangkan
 NEXT_BTN_SEL: str = "ul.jdih-pagination li.page-items:last-child a.page-links"
 
-# PDF links on detail pages follow this pattern:
-# /api/download/{uuid}/{filename}.pdf
-_PDF_RE: re.Pattern[str] = re.compile(r'/api/download/[^"\'<>\s]+\.pdf', re.IGNORECASE)
+# Download links on detail pages: /api/download/{uuid}/{filename}.{ext}
+# The extension may be pdf, html, htm, doc, docx — we match any download link.
+_DOWNLOAD_RE: re.Pattern[str] = re.compile(r'/api/download/[^"\'<>\s]+', re.IGNORECASE)
+
+_CONTENT_TYPE_TO_EXT: dict[str, str] = {
+    "application/pdf": ".pdf",
+    "text/html": ".html",
+    "application/msword": ".doc",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+    "application/zip": ".zip",
+    "text/plain": ".txt",
+}
 
 _HEADERS: dict[str, str] = {
     "User-Agent": (
@@ -85,41 +94,74 @@ def _clean_date(raw: str) -> str:
     )
 
 
-def _safe_filename(regulation_number: str) -> str:
-    return re.sub(r'[^\w\-.]', '_', regulation_number) + ".pdf"
+def _safe_basename(regulation_number: str) -> str:
+    """Return a filesystem-safe base name (no extension)."""
+    return re.sub(r'[^\w\-]', '_', regulation_number)
 
 
-def _get_pdf_url(detail_url: str) -> str | None:
-    """
-    Fetch the regulation detail page with requests and extract the first
-    /api/download/...pdf URL found in the HTML.
-    Does NOT use Playwright — keeps browser sessions lean.
-    """
+def _get_download_urls(detail_url: str) -> list[str]:
+    """Return all /api/download/ URLs found on the detail page."""
     try:
         resp = requests.get(detail_url, headers=_HEADERS, timeout=15)
         resp.raise_for_status()
-        match = _PDF_RE.search(resp.text)
-        if match:
-            return urljoin(BASE_URL, match.group(0))
-        logger.warning("No PDF link found on detail page: %s", detail_url)
-        return None
+        matches = _DOWNLOAD_RE.findall(resp.text)
+        unique = list(dict.fromkeys(matches))  # deduplicate, preserve order
+        return [urljoin(BASE_URL, m) for m in unique]
     except requests.exceptions.RequestException as exc:
         logger.warning("Could not fetch detail page %s: %s", detail_url, exc)
-        return None
+        return []
 
 
-def _download_pdf(url: str, filename: str) -> None:
-    """Stream a PDF from *url* to PDF_DIR/<filename> using requests."""
-    filepath = os.path.join(PDF_DIR, filename)
+def _detect_file_info(url: str) -> tuple[str, str]:
+    """
+    Do a HEAD request to determine Content-Type and return (file_type, extension).
+    Falls back to guessing from the URL path if the header is missing.
+    """
     try:
-        resp = requests.get(url, headers=_HEADERS, stream=True, timeout=30)
+        resp = requests.head(url, headers=_HEADERS, timeout=10, allow_redirects=True)
+        content_type = resp.headers.get("Content-Type", "").split(";")[0].strip().lower()
+        ext = _CONTENT_TYPE_TO_EXT.get(content_type)
+        if ext:
+            return content_type, ext
+    except requests.exceptions.RequestException:
+        pass
+
+    # Fallback: guess from URL extension
+    url_lower = url.lower()
+    for suffix, ext in [(".pdf", ".pdf"), (".html", ".html"), (".htm", ".html"),
+                         (".docx", ".docx"), (".doc", ".doc"), (".txt", ".txt")]:
+        if url_lower.endswith(suffix):
+            return suffix.lstrip("."), ext
+
+    return "unknown", ".bin"
+
+
+def _already_downloaded(basename: str, ext: str) -> bool:
+    """Return True if a file with this basename+ext already exists in PDF_DIR."""
+    filepath = os.path.join(PDF_DIR, basename + ext)
+    return os.path.isfile(filepath)
+
+
+def _download_document(url: str, filename: str) -> str | None:
+    """
+    Stream *url* to PDF_DIR/<filename>.  Returns the local filepath on success.
+    Skips download if the file already exists.
+    """
+    filepath = os.path.join(PDF_DIR, filename)
+    if os.path.isfile(filepath):
+        logger.info("Already downloaded, skipping: %s", filename)
+        return filepath
+    try:
+        resp = requests.get(url, headers=_HEADERS, stream=True, timeout=60)
         resp.raise_for_status()
         with open(filepath, "wb") as fh:
             for chunk in resp.iter_content(chunk_size=8192):
                 fh.write(chunk)
         logger.info("Downloaded: %s", filename)
+        return filepath
     except requests.exceptions.RequestException as exc:
         logger.error("Failed to download %s — %s", url, exc)
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -187,14 +229,27 @@ def _scrape_page(page: Page, page_num: int) -> list[dict[str, str | None]]:
         if record is None:
             continue
 
-        # Resolve the actual PDF URL from the detail page (via requests, not Playwright)
+        # Resolve download URLs and detect file types
+        record["documents"] = []
         if record["detail_url"]:
-            pdf_url = _get_pdf_url(record["detail_url"])
-            record["pdf_url"] = pdf_url
-            if pdf_url:
-                _download_pdf(pdf_url, _safe_filename(record["regulation_number"]))
-        else:
-            record["pdf_url"] = None
+            download_urls = _get_download_urls(record["detail_url"])
+            basename = _safe_basename(record["regulation_number"])
+            for i, dl_url in enumerate(download_urls):
+                file_type, ext = _detect_file_info(dl_url)
+                suffix = f"_{i}" if i > 0 else ""
+                filename = basename + suffix + ext
+                if not _already_downloaded(basename + suffix, ext):
+                    local_path = _download_document(dl_url, filename)
+                else:
+                    local_path = os.path.join(PDF_DIR, filename)
+                    logger.info("Already downloaded, skipping: %s", filename)
+                record["documents"].append({
+                    "url": dl_url,
+                    "file_type": file_type,
+                    "extension": ext,
+                    "filename": filename,
+                    "local_path": local_path,
+                })
 
         records.append(record)
         _random_delay(0.5, 1.5)  # Courtesy delay between detail-page requests
@@ -253,9 +308,8 @@ def scrape_jdih() -> None:
             if not page_records:
                 break
 
-            if current_page < MAX_PAGES:
-                if not _go_to_next_page(page):
-                    break
+            if not _go_to_next_page(page):
+                break
 
         browser.close()
 

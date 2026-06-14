@@ -1,30 +1,29 @@
 """
-pipeline.py — End-to-end GraphRAG pipeline.
+pipeline.py — End-to-end Baseline RAG pipeline.
 
-Two-stage retrieval (vector + graph expansion) + identical generator/prompt to
-BaselineRAGPipeline. The query() return shape mirrors BaselineRAGPipeline so
-both systems are drop-in interchangeable in the evaluation harness.
+Vector-only retrieval (no graph expansion) + identical generator/prompt to
+GraphRAGPipeline. The query() return shape mirrors GraphRAGPipeline so both
+systems are drop-in interchangeable in the evaluation harness.
 
 Usage:
-    from src.graph_rag.pipeline import GraphRAGPipeline
-    pipeline = GraphRAGPipeline()
+    from src.baseline_rag.pipeline import BaselineRAGPipeline
+    pipeline = BaselineRAGPipeline()
     result = pipeline.query("Apa saja syarat penyaluran DBH Sawit?")
 """
 import logging
 from typing import Any
 
 from src import llm_client
-from src.config import GRAPH_HOP_DEPTH, TOP_K_VECTOR
+from src.baseline_rag.retriever import retrieve
+from src.config import TOP_K_VECTOR
 from src.generation import SYSTEM_PROMPT, build_prompt, format_context
-from src.graph_rag.retriever import retrieve
 
 logger = logging.getLogger(__name__)
 
 
-class GraphRAGPipeline:
-    def __init__(self, top_k: int = TOP_K_VECTOR, hop_depth: int = GRAPH_HOP_DEPTH):
+class BaselineRAGPipeline:
+    def __init__(self, top_k: int = TOP_K_VECTOR):
         self.top_k = top_k
-        self.hop_depth = hop_depth
 
     def query(self, question: str) -> dict[str, Any]:
         """
@@ -32,12 +31,12 @@ class GraphRAGPipeline:
             {
                 "question": str,
                 "answer": str,
-                "context": list[dict],   # vector seeds + graph-expanded articles
+                "context": list[dict],   # retrieved articles
             }
         """
-        logger.info("GraphRAG query: %s", question)
+        logger.info("BaselineRAG query: %s", question)
 
-        context_articles = retrieve(question, top_k=self.top_k, hop_depth=self.hop_depth)
+        context_articles = retrieve(question, top_k=self.top_k)
         logger.info("Retrieved %d context articles.", len(context_articles))
 
         context_text = format_context(context_articles)
