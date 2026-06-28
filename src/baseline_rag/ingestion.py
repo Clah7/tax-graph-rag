@@ -41,15 +41,20 @@ EMBED_DIM: int = 1024
 # qwen3-embedding:0.6b handles batches well; keep it modest to avoid OOM.
 BATCH_SIZE: int = 16
 
+# Cap embed input length. qwen3-embedding:0.6b rejects inputs past its ~2048
+# token limit with HTTP 400. Token density varies (dense OCR/numeric text hits
+# the limit at fewer chars than prose), and the corpus contains mis-parsed
+# mega-blob "articles" (up to ~9.9 MB), so no single char cap is universally
+# safe. MAX_EMBED_CHARS is the initial cap most inputs pass at; on a 400 we
+# progressively shrink only the offending text down to EMBED_MIN_CHARS. Only the
+# embedding INPUT is truncated; the full text is still stored as the Chroma
+# document / :Article.text.
+MAX_EMBED_CHARS: int = 6000
+EMBED_MIN_CHARS: int = 256
 
-# ---------------------------------------------------------------------------
-# Embedding
-# ---------------------------------------------------------------------------
-def _embed_batch(texts: list[str]) -> list[list[float]]:
-    """
-    Call the Ollama /api/embed endpoint for a batch of texts.
-    Returns a list of 1024-dimensional float vectors, one per input text.
-    """
+
+def _embed_request(texts: list[str]) -> list[list[float]]:
+    """One Ollama /api/embed call; returns one 1024-dim vector per input."""
     resp = requests.post(
         OLLAMA_URL,
         json={"model": EMBED_MODEL, "input": texts},
@@ -62,6 +67,44 @@ def _embed_batch(texts: list[str]) -> list[list[float]]:
             f"Ollama returned {len(embeddings)} embeddings for {len(texts)} inputs."
         )
     return embeddings
+
+
+def _is_400(exc: requests.exceptions.HTTPError) -> bool:
+    return exc.response is not None and exc.response.status_code == 400
+
+
+def _embed_one_with_shrink(text: str) -> list[float]:
+    """Embed a single text, halving its length on each 400 until it fits."""
+    n = min(len(text), MAX_EMBED_CHARS) or 1
+    while True:
+        try:
+            return _embed_request([text[:n]])[0]
+        except requests.exceptions.HTTPError as exc:
+            if _is_400(exc) and n > EMBED_MIN_CHARS:
+                n = max(EMBED_MIN_CHARS, n // 2)
+                logger.warning("embed 400; retrying a single text at %d chars.", n)
+                continue
+            raise
+
+
+def _embed_batch(texts: list[str]) -> list[list[float]]:
+    """
+    Embed a batch via Ollama. Fast path sends the whole batch (each input capped
+    at MAX_EMBED_CHARS). If the model rejects the batch with HTTP 400 (a text too
+    dense/long even after the cap), fall back to per-text embedding that shrinks
+    only the offending input — so one pathological article can't fail the batch.
+    """
+    capped = [t[:MAX_EMBED_CHARS] for t in texts]
+    try:
+        return _embed_request(capped)
+    except requests.exceptions.HTTPError as exc:
+        if not _is_400(exc):
+            raise
+        logger.warning(
+            "Batch embed got HTTP 400; falling back to per-text shrink for %d texts.",
+            len(texts),
+        )
+        return [_embed_one_with_shrink(t) for t in texts]
 
 
 # ---------------------------------------------------------------------------
