@@ -9,6 +9,9 @@ beautifulsoup4>=4.12.0
 pandas>=2.0.0
 scipy>=1.11.0
 
+# Tests
+pytest>=8.0.0
+
 # Optional — only required when running `python -m src.evaluation report --with-ragas`
 ragas>=0.2.0
 langchain-ollama>=0.2.0

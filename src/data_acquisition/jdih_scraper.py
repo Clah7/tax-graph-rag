@@ -35,7 +35,7 @@ TARGET_URL: str = (
     "&teu=Direktorat+Jenderal+Pajak"
     "&bentuk=Keputusan+Unit+Eselon+I"
 )
-JSON_OUTPUT: str = "jdih_metadata.json"
+JSON_OUTPUT: str = "data/jdih_metadata.json"
 PDF_DIR: str = "data/raw_pdfs"
 MAX_PAGES: int = 9999  # Runs until pagination is exhausted
 

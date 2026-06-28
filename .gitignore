@@ -3,19 +3,20 @@
 # =========================
 # Never commit credentials, even for local databases.
 .env
-CLAUDE.md
 # =========================
 # 2. Data & Databases
 # =========================
 # Ignore scraped files, processed JSONs, and the local vector database.
-# Committing these will bloat the repository.
-data/raw/
+# Committing these will bloat the repository. Scoped to data/ so config and
+# fixture files elsewhere (.env.example, pyproject.toml, *.jsonl eval sets)
+# are never swallowed by a blanket *.json / *.pdf rule.
+data/raw_pdfs/
 data/processed/
 data/chroma_db/
-*.pdf
-*.json
-*.html
-*.bin
+data/**/*.pdf
+data/**/*.json
+data/**/*.html
+data/**/*.bin
 
 # Keep the empty directory structure for data/ground_truth if needed:
 # !data/ground_truth/.gitkeep

@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tax-graph-rag"
+version = "0.1.0"
+description = "Comparative Baseline RAG vs GraphRAG over Indonesian tax regulations (Skripsi)."
+requires-python = ">=3.11"
+dynamic = ["dependencies"]
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+# E/F = pyflakes+pycodestyle, I = import sorting, UP = pyupgrade, B = bugbear
+select = ["E", "F", "I", "UP", "B"]

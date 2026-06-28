@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 # Configuration
 # ---------------------------------------------------------------------------
 PDF_DIR: str = "data/raw_pdfs"
-METADATA_JSON: str = "jdih_metadata.json"
+METADATA_JSON: str = "data/jdih_metadata.json"
 OUTPUT_JSON: str = "data/processed/articles.json"
 REGULATIONS_OUTPUT_JSON: str = "data/processed/regulations.json"
 TEST_LIMIT: int | None = None  # Set to an int to limit files processed
