@@ -4,10 +4,15 @@ Current state of the project. **Overwrite this file freely** — it reflects
 "where things stand now," not history. For dated history see
 `docs/research-log.md`; for the roadmap see `TODO.md`.
 
-## Stores (last verified 2026-05-25)
+## Stores (last verified 2026-05-25; ChromaDB text re-migrated 2026-06-29)
 
-Both stores wiped and rebuilt from the parser's `articles.json` /
-`regulations.json`; in sync and queryable.
+Built from the parser's `articles.json` / `regulations.json`. Counts below are
+unchanged, but the two stores are **currently OUT OF SYNC on article text**:
+ChromaDB was migrated to the corrected batang-tubuh text (ADR 0006 dedup fix,
+18,255 docs re-embedded), while Neo4j still holds the old keep-last text pending
+a graph rebuild. **Do not run a baseline-vs-graph eval comparison until Neo4j is
+rebuilt** — baseline (Chroma) has corrected text, graph (Neo4j) does not, so the
+comparison would be confounded.
 
 | Store | Count |
 |---|---|
