@@ -17,9 +17,10 @@ Pasal numbers, and Penjelasan collides with batang tubuh. ~5% of articles hold
 - [ ] Disambiguate omnibus collisions (ID scheme — see ADR 0006). ~1,157 cases,
       UU/PP/Perpu. Not started — the real design work.
 - [ ] Harden `validate_ground_truth.py` to flag penjelasan/trivial resolved text.
-- [~] Apply to live stores: `scripts/migrate_dedup_text.py` drafted + dry-run
-      (18,271 docs differ in each store). NOT applied — Chroma re-embed ~45min;
-      Neo4j needs graph rebuild for edge correctness. Re-check q001–q010 after.
+- [~] Apply to live stores. ChromaDB DONE (2026-06-29): `migrate_dedup_text`
+      re-embedded 18,255 docs; idempotency dry-run = 0 diffs; gold IDs 13/13.
+      Embed-length fix landed (`1aa61ef`: cap + retry-on-400 shrink). Neo4j still
+      pending — rebuild graph (~40 min) for correct text + REFERENCES/DEFINES.
 
 ## 1. Hand-label ground-truth set — target 50 questions
 

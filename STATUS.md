@@ -29,11 +29,13 @@ Raw articles on disk: 144,329 → 118,966 unique after dedup on
   `(regulation_id, article_number)` collapses distinct provisions: omnibus laws
   (UU 7/2021 HPP amends KUP/PPh/PPN) reuse Pasal numbers, and Penjelasan is
   captured under the same number as its batang tubuh. ~19,246 (16.2%) of groups
-  have >1 raw record; **~6,031 (~5%) merge ≥2 genuinely distinct bodies**. Dedup
-  keeps the *last* record arbitrarily (Chroma `seen[id]=a`; Neo4j `ON MATCH SET
-  a.text`), so survivors can be wrong-law text or a `"Cukup jelas."` stub (e.g.
-  `UU 7/2021::9`). Blocks eval sourcing from affected laws and degrades both RAG
-  corpora. Eval drafting paused pending fix.
+  have >1 raw record; the old dedup kept the *last* record arbitrarily, so 18,255
+  articles held wrong/penjelasan text (e.g. `UU 7/2021::9` = `"Cukup jelas."`).
+  **Fixed in ingestion** via shared `src/corpus.py` (longest non-penjelasan).
+  **ChromaDB migrated 2026-06-29** (`scripts/migrate_dedup_text`, 18,255 docs
+  re-embedded; idempotency + gold-ID validation pass). **Neo4j NOT yet migrated**
+  — needs a graph rebuild for correct text AND edges (~40 min). ~1,157 true
+  omnibus collisions remain (UU/PP/Perpu) pending the ID scheme (ADR 0006 item 2).
 - **OCR `O`→`0`** (not fixed; deferred by decision — see ADR 0003). ~287 rows
   (~0.2%) have capital `O` where digit `0` belongs. Breaks dedup and poisons
   `REFERENCES` edges (~20k of 107k attempted edges didn't resolve to a target
