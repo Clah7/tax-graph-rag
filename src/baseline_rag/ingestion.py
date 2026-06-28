@@ -15,6 +15,8 @@ from typing import Any
 import chromadb
 import requests
 
+from src.corpus import load_articles
+
 # ---------------------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------------------
@@ -104,17 +106,8 @@ def ingest(
     collection_name: str = COLLECTION_NAME,
     batch_size: int = BATCH_SIZE,
 ) -> None:
-    # 1. Load articles and deduplicate by ID (keep last occurrence)
-    with open(articles_path, encoding="utf-8") as fh:
-        raw_articles: list[dict[str, Any]] = json.load(fh)
-    logger.info("Loaded %d articles from '%s'.", len(raw_articles), articles_path)
-
-    seen: dict[str, dict[str, Any]] = {}
-    for a in raw_articles:
-        seen[_make_doc_id(a["regulation_id"], a["article_number"])] = a
-    articles = list(seen.values())
-    if len(articles) < len(raw_articles):
-        logger.info("Deduplicated %d → %d unique articles.", len(raw_articles), len(articles))
+    # 1. Load + deduplicate articles (shared rule — see src/corpus.py / ADR 0006)
+    articles = load_articles(articles_path)
 
     # 2. Open / create ChromaDB collection
     collection = _get_collection(chroma_dir, collection_name)

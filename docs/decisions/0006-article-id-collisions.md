@@ -1,7 +1,7 @@
 # 0006 — Article-ID collisions: omnibus laws + penjelasan-as-article
 
-- **Status:** Proposed
-- **Date:** 2026-06-29
+- **Status:** Dedup rule Accepted; omnibus ID scheme still Proposed
+- **Date:** 2026-06-29 (prototype measurements added same day)
 
 ## Context
 
@@ -51,21 +51,47 @@ for `UU 7/2021::9` is the `"Cukup jelas."` stub.
   article_number)` is insufficient for omnibus/amendment laws.
 - Distinct from, and larger than, the OCR `O`→`0` issue (ADR 0003).
 
-## Decision (proposed — fix scope to confirm before re-ingest)
+## Prototype measurements (`scripts/prototype_dedup.py`, 2026-06-29)
 
-1. **Dedup must prefer batang tubuh, not last-seen.** Minimum: keep the longest
-   non-penjelasan record per ID; drop `"Cukup jelas."`/empty survivors.
-2. **Disambiguate omnibus collisions.** Options to evaluate:
-   (a) extend the ID with the embedded-law / structural context the parser can
-   recover; (b) detect amended-law blocks during parsing and namespace the Pasal.
-3. **Penjelasan handling.** Either attach elucidation to its batang tubuh as a
-   separate field, or tag and exclude penjelasan records from `:Article` text.
+Testing the rule "keep the longest non-penjelasan, non-trivial record per ID"
+(vs. current keep-last) over the 19,246 multi-record groups:
+
+| Category | Count |
+|---|---|
+| Selectable — one batang tubuh after dropping penjelasan; simple rule fixes | 16,247 |
+| Raw multi-body "collisions" | 2,990 |
+| ...of which **true co-equal collisions** (≥2 distinct bodies, both >300 chars) | **1,157** |
+| ...both bodies >1000 chars (hard core) | 445 |
+| IDs whose text **changes** vs current keep-last | 18,264 |
+
+The 2,990 raw collisions are mostly **lampiran/form fragments** mis-numbered as a
+Pasal (e.g. `10/PMK.02/2017::23`, where the longest record is the real Pasal and
+the extras are matrix rows) — longest-batang-tubuh-wins resolves these correctly.
+True co-equal collisions concentrate in amendment/omnibus laws, by type:
+**UU 617, PP 216, Perpu 152, PMK 35.** PMK is essentially clean after the simple
+rule; the danger zone for eval sourcing is UU/PP/Perpu (e.g. UU 7/2021 HPP).
+
+## Decision
+
+1. **Dedup keeps the longest non-penjelasan, non-trivial record per ID** —
+   *Accepted*. Resolves ~18k of 19,246 multi-record groups, including the
+   lampiran artifacts. Implemented as a single shared loader (`src/corpus.py`)
+   that both ingestions call, so Chroma and Neo4j stay identical by construction.
+   The dedup logs a warning counting the ~1,157 true collisions where a co-equal
+   provision is dropped, so they stay visible until (2) lands.
+2. **Disambiguate omnibus collisions** — *still Proposed*. ~1,157 cases need an ID
+   scheme, not selection. Options: (a) extend the ID with embedded-law/structural
+   context the parser recovers; (b) detect amended-law blocks during parsing and
+   namespace the Pasal. Decide before claiming UU/PP/Perpu coverage in the eval.
+3. **Penjelasan handling** — for now excluded from the chosen `:Article` text by
+   the dedup heuristic; attaching elucidation as a separate field is future work.
 4. **Harden `validate_ground_truth.py`** to flag gold IDs whose resolved text is
    trivial/penjelasan, not just missing.
 
-Mechanism, exact ID scheme, and whether to re-parse vs. migrate are open; record
-the final choice here before re-ingesting. Eval-question drafting is paused until
-the corpus is corrected, then resumes sourcing only from verified-clean records.
+Whether to re-parse vs. migrate `articles.json` + Chroma + Neo4j is open (migration
+avoids the ~5h baseline re-embed). Eval-question drafting stays paused until the
+corpus is corrected, then resumes — PMK-sourced questions first (clean post-fix),
+UU/PP/Perpu only after the ID scheme (2).
 
 ## Status of related work
 

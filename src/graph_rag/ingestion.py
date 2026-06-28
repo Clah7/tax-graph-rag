@@ -39,6 +39,7 @@ from src.config import (
     NEO4J_URI,
     NEO4J_USER,
 )
+from src.corpus import load_articles
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -65,9 +66,10 @@ def build_graph(
     articles_path: str = ARTICLES_JSON,
     regulations_path: str = REGULATIONS_JSON,
 ) -> None:
-    with open(articles_path, encoding="utf-8") as fh:
-        articles: list[dict[str, Any]] = json.load(fh)
-    logger.info("Loaded %d articles from '%s'.", len(articles), articles_path)
+    # Load + deduplicate articles (shared rule — see src/corpus.py / ADR 0006).
+    # The deduped list feeds node, reference, and definition ingestion alike, so
+    # all three see the same canonical record per ID.
+    articles = load_articles(articles_path)
 
     regulations: list[dict[str, Any]] = []
     if Path(regulations_path).exists():
