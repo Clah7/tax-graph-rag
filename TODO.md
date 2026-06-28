@@ -11,10 +11,15 @@ Pasal numbers, and Penjelasan collides with batang tubuh. ~5% of articles hold
 ≥2 distinct merged bodies; dedup keeps the last record arbitrarily (can be a
 `"Cukup jelas."` stub). Degrades both RAG corpora and makes gold text unreliable.
 
-- [ ] Dedup: prefer batang tubuh (longest non-penjelasan), drop trivial survivors.
-- [ ] Disambiguate omnibus collisions (ID scheme — see ADR 0006).
+- [x] Dedup: prefer batang tubuh (longest non-penjelasan), drop trivial
+      survivors. `src/corpus.py` shared by both ingestions; tests in
+      `tests/test_corpus.py`. (2026-06-29)
+- [ ] Disambiguate omnibus collisions (ID scheme — see ADR 0006). ~1,157 cases,
+      UU/PP/Perpu. Not started — the real design work.
 - [ ] Harden `validate_ground_truth.py` to flag penjelasan/trivial resolved text.
-- [ ] Re-ingest or migrate; re-check q001–q010 gold text afterward.
+- [~] Apply to live stores: `scripts/migrate_dedup_text.py` drafted + dry-run
+      (18,271 docs differ in each store). NOT applied — Chroma re-embed ~45min;
+      Neo4j needs graph rebuild for edge correctness. Re-check q001–q010 after.
 
 ## 1. Hand-label ground-truth set — target 50 questions
 
