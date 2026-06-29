@@ -4,26 +4,29 @@ Current state of the project. **Overwrite this file freely** — it reflects
 "where things stand now," not history. For dated history see
 `docs/research-log.md`; for the roadmap see `TODO.md`.
 
-## Stores (last verified 2026-05-25; ChromaDB text re-migrated 2026-06-29)
+## Stores (Neo4j rebuilt + verified in sync 2026-06-29)
 
-Built from the parser's `articles.json` / `regulations.json`. Counts below are
-unchanged, but the two stores are **currently OUT OF SYNC on article text**:
-ChromaDB was migrated to the corrected batang-tubuh text (ADR 0006 dedup fix,
-18,255 docs re-embedded), while Neo4j still holds the old keep-last text pending
-a graph rebuild. **Do not run a baseline-vs-graph eval comparison until Neo4j is
-rebuilt** — baseline (Chroma) has corrected text, graph (Neo4j) does not, so the
-comparison would be confounded.
+Built from the parser's `articles.json` / `regulations.json`. **Both stores are
+now IN SYNC on the corrected batang-tubuh text** — eval comparisons are
+unblocked. ChromaDB was migrated 2026-06-29 (ADR 0006 dedup fix, 18,255 docs
+re-embedded); Neo4j was wiped (`reset_stores --neo4j`) and rebuilt 2026-06-29
+from the same corrected dedup corpus (`src/corpus.load_articles`: 144,329 →
+118,966, 1,157 omnibus collisions logged), refreshing article text and
+`REFERENCES`/`DEFINES` edges. Verified post-rebuild: gold IDs resolve 13/13 in
+both stores; sampled gold article text is byte-identical Chroma vs Neo4j. Edge
+counts dropped from the pre-rebuild snapshot (corrected text extracts fewer
+references/definitions) — expected.
 
 | Store | Count |
 |---|---|
 | ChromaDB `tax_articles` | 118,966 article docs (1024-dim qwen3 embeddings) |
 | Neo4j `:Article` | 118,966 |
 | Neo4j `:Regulation` | 5,908 (incl. 549 stubs that are only AMENDS targets) |
-| Neo4j `:Concept` | 10,050 |
+| Neo4j `:Concept` | 9,765 |
 | `:BELONGS_TO` | 118,966 |
-| `:REFERENCES` | 87,088 (intra + cross) |
+| `:REFERENCES` | 81,315 (intra + cross) |
 | `:AMENDS` | 852 |
-| `:DEFINES` | 30,689 |
+| `:DEFINES` | 29,661 |
 
 Raw articles on disk: 144,329 → 118,966 unique after dedup on
 `(regulation_id, article_number)` (~6× the pre-rewrite corpus of ~19,400).
@@ -38,9 +41,11 @@ Raw articles on disk: 144,329 → 118,966 unique after dedup on
   articles held wrong/penjelasan text (e.g. `UU 7/2021::9` = `"Cukup jelas."`).
   **Fixed in ingestion** via shared `src/corpus.py` (longest non-penjelasan).
   **ChromaDB migrated 2026-06-29** (`scripts/migrate_dedup_text`, 18,255 docs
-  re-embedded; idempotency + gold-ID validation pass). **Neo4j NOT yet migrated**
-  — needs a graph rebuild for correct text AND edges (~40 min). ~1,157 true
-  omnibus collisions remain (UU/PP/Perpu) pending the ID scheme (ADR 0006 item 2).
+  re-embedded; idempotency + gold-ID validation pass). **Neo4j rebuilt
+  2026-06-29** — wiped + re-ingested from the corrected dedup corpus (correct
+  text AND edges; ~38 min); verified in sync with ChromaDB (gold IDs 13/13,
+  sampled text byte-identical). ~1,157 true omnibus collisions remain (UU/PP/
+  Perpu) pending the ID scheme (ADR 0006 item 2).
 - **OCR `O`→`0`** (not fixed; deferred by decision — see ADR 0003). ~287 rows
   (~0.2%) have capital `O` where digit `0` belongs. Breaks dedup and poisons
   `REFERENCES` edges (~20k of 107k attempted edges didn't resolve to a target
