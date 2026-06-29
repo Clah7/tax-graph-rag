@@ -16,7 +16,9 @@ Pasal numbers, and Penjelasan collides with batang tubuh. ~5% of articles hold
       `tests/test_corpus.py`. (2026-06-29)
 - [ ] Disambiguate omnibus collisions (ID scheme — see ADR 0006). ~1,157 cases,
       UU/PP/Perpu. Not started — the real design work.
-- [ ] Harden `validate_ground_truth.py` to flag penjelasan/trivial resolved text.
+- [x] Harden `validate_ground_truth.py` to flag penjelasan/trivial resolved text.
+      Reuses `src.corpus._is_usable_body` so validator + dedup share one rule;
+      now also fails (exit 1) on resolve-to-penjelasan. 0/13 flagged. (2026-06-29)
 - [x] Apply to live stores. ChromaDB (2026-06-29): `migrate_dedup_text`
       re-embedded 18,255 docs; idempotency dry-run = 0 diffs; gold IDs 13/13.
       Embed-length fix landed (`1aa61ef`: cap + retry-on-400 shrink). Neo4j
