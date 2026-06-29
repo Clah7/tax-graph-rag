@@ -58,18 +58,26 @@ Raw articles on disk: 144,329 → 118,966 unique after dedup on
 
 ## Ground truth
 
-`data/ground_truth/eval.jsonl` — **10 entries (q001–q010), all `VERIFIED`.**
-Composition so far: 6 multi-hop (q001–q006), 4 single-hop (q007–q010). Target:
-50 verified.
+`data/ground_truth/eval.jsonl` — **14 entries (q001–q014), all `VERIFIED`.**
+Composition: 8 multi-hop (q001–q006, q011–q012), 6 single-hop (q007–q010,
+q013–q014). Target: 50 verified. All 17 unique gold IDs resolve in both stores,
+0 penjelasan/trivial (`scripts.validate_ground_truth`).
 
-**Verification pass complete (2026-06-28).** All 10 rows verified by hand
-against the PMK/PP/UU source text; each `notes` now starts with `VERIFIED`.
-13 unique gold IDs all resolve in both ChromaDB and Neo4j
-(`python -m scripts.validate_ground_truth`) — no missing IDs, no OCR `O`→`0`
-suspects.
+Topic spread: cukai (PMK 82/2024) ×2, disiplin PNS (PP 53/2010) ×3,
+ketenagakerjaan (UU 13/2003) ×3, PPh 21 (PMK 168/2023) ×2, Bea Materai
+(UU 10/2020) ×4 (new, q011–q014). Skew toward non-tax topics from the first
+batch is being corrected — next batches lean tax.
 
-Next: author toward 50 (keep ~60% multi / ~40% single, spread across
-PMK/PP/UU/Perpu/Perpres, no topic >~20%), then freeze a 30% held-out test split
-before tuning. Several early rows (q008–q010) self-flagged an incomplete
-`gold_answer` during drafting — re-confirm those were tightened during the
-verification pass. Procedure: `docs/building-eval-dataset.md`.
+**q011–q014 authored + verified 2026-06-29** from UU 10/2020 (Bea Materai),
+grounded verbatim in source text and hand-verified against it.
+
+**Sourcing finding (methodology):** the amendment-law tax UUs (UU 36/2008 PPh,
+UU 42/2009 PPN, UU 28/2007 KUP) are poor gold sources as stored — their text
+carries amendment framing ("Ketentuan Pasal X diubah…") and **superseded rates**
+(PPh badan 28/25%, PPN 10%, KUP flat 2%/bln — all changed by UU 7/2021 HPP).
+Prefer clean + current sources (UU 10/2020 Bea Materai, self-contained PMKs, or a
+verified consolidated law) when authoring tax questions; record rejections.
+
+**Verification passes complete** — q001–q010 (2026-06-28), q011–q014
+(2026-06-29); verified by hand against PMK/PP/UU source text, each `notes` starts
+with `VERIFIED`. Procedure: `docs/building-eval-dataset.md`.
