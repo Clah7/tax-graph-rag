@@ -18,6 +18,10 @@ data/**/*.json
 data/**/*.html
 data/**/*.bin
 
+# ...but the frozen dev/test split is a small reproducibility artifact, tracked
+# like the .jsonl eval set so tuning/reporting is replayable.
+!data/ground_truth/split.json
+
 # Keep the empty directory structure for data/ground_truth if needed:
 # !data/ground_truth/.gitkeep
 

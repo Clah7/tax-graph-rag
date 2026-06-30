@@ -42,5 +42,13 @@ if not NEO4J_PASSWORD:
     )
 
 # Retrieval
-TOP_K_VECTOR = 5       
-GRAPH_HOP_DEPTH = 2    
+TOP_K_VECTOR = 5
+GRAPH_HOP_DEPTH = 2
+
+# GraphRAG re-ranking (strict parity: graph feeds the same TOP_K_VECTOR budget as
+# baseline, but a reference-linked neighbor may displace a weak seed). Final score
+# = query_similarity + GRAPH_RERANK_ALPHA * graph_boost, where graph_boost rewards
+# neighbors linked from strong, nearby seeds. Pure similarity (alpha=0) reproduces
+# baseline exactly. TUNE ALPHA ON A HELD-OUT SPLIT, never on the eval test set.
+GRAPH_RERANK_ALPHA = 0.15  # tuned on dev split (scripts.tune_alpha), 2026-07-01
+GRAPH_CONTEXT_BUDGET = TOP_K_VECTOR

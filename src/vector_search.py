@@ -53,3 +53,18 @@ def vector_search(query: str, top_k: int) -> list[dict[str, Any]]:
             "source": "vector",
         })
     return articles
+
+
+def fetch_embeddings(ids: list[str]) -> dict[str, list[float]]:
+    """Return stored (query-space) embeddings for the given article ids.
+
+    Used by GraphRAG to score graph-expanded neighbors against the query in the
+    exact same embedding space as the seeds — no re-embedding, no drift. Ids
+    missing from the collection are simply absent from the result.
+    """
+    if not ids:
+        return {}
+    client = chromadb.PersistentClient(path=CHROMA_DIR)
+    collection = client.get_collection(CHROMA_COLLECTION)
+    res = collection.get(ids=ids, include=["embeddings"])
+    return {i: emb for i, emb in zip(res["ids"], res["embeddings"])}
