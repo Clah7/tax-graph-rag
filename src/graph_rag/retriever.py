@@ -52,7 +52,8 @@ from src.config import (
     NEO4J_USER,
     TOP_K_VECTOR,
 )
-from src.vector_search import fetch_embeddings, vector_search
+from src.seeding import seed_search
+from src.vector_search import fetch_embeddings
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +80,7 @@ def gather(query: str, top_k: int = TOP_K_VECTOR, hop_depth: int = GRAPH_HOP_DEP
     """
     query_embedding = llm_client.embed([query])[0]
 
-    seed_articles = vector_search(query, top_k)
+    seed_articles = seed_search(query, top_k)
     seed_ids = [a["id"] for a in seed_articles]
     seed_score = {a["id"]: a["score"] for a in seed_articles}
     logger.info("Vector search returned %d seed articles: %s", len(seed_ids), seed_ids)

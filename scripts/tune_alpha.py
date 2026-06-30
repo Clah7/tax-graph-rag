@@ -19,6 +19,7 @@ import argparse
 import json
 from pathlib import Path
 
+import src.config as config
 from src.config import BASE_DIR, GRAPH_CONTEXT_BUDGET
 from src.evaluation.dataset import load_dataset
 from src.evaluation.ir_metrics import score_row
@@ -93,7 +94,13 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--report-test", type=float, metavar="ALPHA",
                     help="Evaluate a single chosen alpha on the held-out test split.")
+    ap.add_argument("--hybrid", action="store_true",
+                    help="Seed with hybrid lexical+dense retrieval (config.USE_HYBRID_SEEDING).")
     args = ap.parse_args()
+
+    if args.hybrid:
+        config.USE_HYBRID_SEEDING = True
+        print("Seeding: HYBRID (lexical+dense)")
 
     split = _load_split()
     if args.report_test is not None:

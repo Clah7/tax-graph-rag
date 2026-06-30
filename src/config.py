@@ -52,3 +52,12 @@ GRAPH_HOP_DEPTH = 2
 # baseline exactly. TUNE ALPHA ON A HELD-OUT SPLIT, never on the eval test set.
 GRAPH_RERANK_ALPHA = 0.15  # tuned on dev split (scripts.tune_alpha), 2026-07-01
 GRAPH_CONTEXT_BUDGET = TOP_K_VECTOR
+
+# Hybrid lexical+dense seeding (shared by both pipelines via src.seeding).
+# Retrieve a deep dense pool, BM25 re-rank the pool, fuse by Reciprocal Rank
+# Fusion. Diagnosis 2026-07-01: gold is recallable but mis-ranked by the 0.6b
+# embedder; lexical signal anchors cited terms/regulation names. Pure-vector is
+# retained (toggle off) for the (dense vs hybrid) x (baseline vs graph) ablation.
+USE_HYBRID_SEEDING = False
+HYBRID_POOL = 200      # dense candidates re-ranked by BM25 before fusion
+HYBRID_RRF_K = 60      # standard RRF constant (not tuned on eval data)
