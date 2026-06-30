@@ -144,7 +144,27 @@ no tuning). **Generalizes to held-out test**, unlike the graph re-rank:
 | mrr | 0.424 | 0.547 | +0.123 |
 
 Lexical signal anchors the cited terms ("Pajak Hotel", regulation names) the
-dense model smears. **Not yet wired into the pipeline** — see `TODO.md §2a`.
-Open: whether hybrid replaces the shared seeding (stronger baseline) or runs as a
-toggle for a (dense vs hybrid)×(baseline vs graph) ablation; and whether better
-seeds finally let graph expansion reach the cross-regulation gold (q015–q018).
+dense model smears.
+
+**Wired in** (commit `69e8c99`): `src/hybrid_search.py` + `src/seeding.py`
+dispatch (`USE_HYBRID_SEEDING` toggle, default off so the pure-vector baseline is
+preserved), shared by both pipelines. **The 2×2 on held-out test** (alpha
+re-tuned on dev only, hybrid dev-best = 0.10):
+
+| system | recall@5 | hit@5 | mrr |
+|---|---|---|---|
+| dense-baseline | 0.469 | 0.625 | 0.424 |
+| hybrid-baseline | 0.521 | 0.750 | 0.547 |
+| dense + graph (α=0.15) | 0.469 | 0.563 | 0.440 |
+| **hybrid + graph (α=0.10)** | **0.698** | **0.938** | 0.477 |
+
+**Key finding: graph expansion is null on dense seeds but decisive on hybrid
+seeds** — recall@5 0.521→0.698, hit@5 0.750→0.938 (gold reaches the LLM for 15/16
+test questions). The graph win only materializes once seeds land in the right
+regulation, so its expansion can follow the cross-reg REFERENCES edge. End-to-end
+dense-baseline → hybrid+graph: recall@5 +0.23 (+49% rel), hit@5 +0.31. Trade-off:
+mrr dips (first gold slips to rank 2–3) — immaterial for context-filling.
+
+Still open: generation-side eval (RAGAS faithfulness/correctness) on the 2×2;
+`eval run` flags for `--hybrid`/`--alpha` to make the four runs reproducible;
+larger eval set (n=16 test) to tighten the stats.

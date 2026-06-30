@@ -58,21 +58,23 @@ to detect a modest graph effect, so growing the set is also a stats priority.
       thesis's measuring instrument; a silent bug here invalidates the conclusion.
       `tests/test_ir_metrics.py`, 28 cases, all pass. (2026-06-28)
 
-## 2a. (NEXT) Hybrid lexical+dense seeding
+## 2a. Hybrid lexical+dense seeding — DONE (retrieval IR); graph win found
 
 Diagnosis (2026-07-01): seeding, not ranking, is the retrieval bottleneck —
-41/44 gold IDs are within the dense top-200 but buried below top-5. Prototype
-(dense top-200 ⊕ BM25 pool re-rank, RRF k=60) lifts **held-out test** recall@5
-.469→.521, hit@5 .625→.750, mrr .424→.547 — and generalizes (unlike the graph
-re-rank, §2b, which was a wash on test). See STATUS.md "Retrieval & evaluation".
+41/44 gold IDs are within the dense top-200 but buried below top-5.
 
-- [ ] Productionize `hybrid_search()` (no global BM25 index needed — re-rank the
-      dense top-N pool). Add a config toggle; **keep pure-vector retained** for a
-      (dense vs hybrid) × (baseline vs graph) ablation.
-- [ ] Decide framing: hybrid as the new shared seeding (stronger baseline) vs
-      toggle-only ablation. Affects what "baseline" denotes in the thesis.
-- [ ] Re-run the 2×2 + re-tune alpha on hybrid seeds. Key question: do better
-      seeds let graph expansion reach the cross-reg gold (q015–q018)?
+- [x] `src/hybrid_search.py` (dense top-N pool ⊕ BM25 re-rank ⊕ RRF k=60, no
+      global index) + `src/seeding.py` dispatch on `USE_HYBRID_SEEDING` (toggle,
+      default off — pure-vector baseline retained). Commit `69e8c99`.
+- [x] Re-tuned alpha on hybrid dev (=0.10), reported the 2×2 on held-out test.
+      **hybrid+graph recall@5 .698, hit@5 .938** vs dense-baseline .469/.625.
+      Graph is null on dense seeds, decisive on hybrid seeds. STATUS.md has table.
+- [ ] **Framing call (thesis):** report hybrid as the shared seeding (stronger
+      baseline) or as a toggle-only ablation. Affects what "baseline" denotes.
+- [ ] `eval run --hybrid/--alpha` flags so the four generation runs are
+      reproducible without editing config (currently config-toggle only).
+- [ ] Generation-side eval (RAGAS) on the 2×2 — §2 open item.
+- [ ] Consider tuning HYBRID_POOL / RRF_K on dev (kept at defaults for now).
 
 ## 2b. Strict-parity graph re-ranker — DONE, null result
 
