@@ -58,18 +58,36 @@ Raw articles on disk: 144,329 → 118,966 unique after dedup on
 
 ## Ground truth
 
-`data/ground_truth/eval.jsonl` — **14 entries (q001–q014), all `VERIFIED`.**
-Composition: 8 multi-hop (q001–q006, q011–q012), 6 single-hop (q007–q010,
-q013–q014). Target: 50 verified. All 17 unique gold IDs resolve in both stores,
-0 penjelasan/trivial (`scripts.validate_ground_truth`).
+`data/ground_truth/eval.jsonl` — **24 entries (q001–q024), all `VERIFIED`.**
+Composition: 16 multi-hop (q001–q006, q011–q012, q015–q022), 8 single-hop
+(q007–q010, q013–q014, q023–q024). Target: 50 verified. All 36 unique gold IDs
+resolve in both stores, 0 penjelasan/trivial (`scripts.validate_ground_truth`).
 
 Topic spread: cukai (PMK 82/2024) ×2, disiplin PNS (PP 53/2010) ×3,
 ketenagakerjaan (UU 13/2003) ×3, PPh 21 (PMK 168/2023) ×2, Bea Materai
-(UU 10/2020) ×4 (new, q011–q014). Skew toward non-tax topics from the first
-batch is being corrected — next batches lean tax.
+(UU 10/2020) ×4 (q011–q014), PPh final UMKM (PP 23/2018 ↔ PMK 99/2018) ×4
+(q015–q018), PDRD (UU 28/2009: BPHTB, Pajak Hotel, PKB, jenis pajak provinsi,
+objek BPHTB, muatan Perda) ×6 (new, q019–q024). Skew toward non-tax topics from
+the first batch is being corrected — recent batches lean tax.
 
 **q011–q014 authored + verified 2026-06-29** from UU 10/2020 (Bea Materai),
 grounded verbatim in source text and hand-verified against it.
+
+**q015–q018 authored + verified 2026-06-29** — first **cross-regulation**
+multi-hop batch: each answer needs one PP 23/2018 article (norm: tarif 0,5%,
+ambang Rp4,8M, DPP, opsi KUP) + one PMK 99/PMK.03/2018 article (pelaksana:
+pelunasan, angsuran PPh 25, tata cara pemberitahuan, penyetoran). Genuine
+inter-regulation REFERENCES / delegation edges — the case GraphRAG should win.
+Grounded verbatim; hand-verified. Note: PP 23/2018 is revoked by PP 55/2022, but
+the 0,5% rate / Rp4,8M threshold were carried forward unchanged, so not a
+superseded-content trap; flagged in each row's `notes`.
+
+**q019–q024 authored + verified 2026-06-29** from UU 28/2009 (PDRD), grounded
+verbatim in source text (corpus `data/processed/articles.json`). Four
+computation-chain multi-hops (q019 BPHTB, q020 Pajak Hotel, q021 PKB tarif+DPP,
+q022 jenis pajak provinsi + bagi hasil), each chaining tarif / dasar pengenaan /
+rumus penghitungan across 2–3 same-regulation articles via explicit REFERENCES
+edges; two single-hop controls (q023 objek BPHTB, q024 muatan minimal Perda).
 
 **Sourcing finding (methodology):** the amendment-law tax UUs (UU 36/2008 PPh,
 UU 42/2009 PPN, UU 28/2007 KUP) are poor gold sources as stored — their text
@@ -77,7 +95,10 @@ carries amendment framing ("Ketentuan Pasal X diubah…") and **superseded rates
 (PPh badan 28/25%, PPN 10%, KUP flat 2%/bln — all changed by UU 7/2021 HPP).
 Prefer clean + current sources (UU 10/2020 Bea Materai, self-contained PMKs, or a
 verified consolidated law) when authoring tax questions; record rejections.
+Coretax chains (PER-7/PJ/2025 ↔ PMK 81/2024) were rejected for q015–q018: the
+linked article pairs restate the same rule (redundant), so they fail the "must
+use both regs" test for multi-hop.
 
-**Verification passes complete** — q001–q010 (2026-06-28), q011–q014
+**Verification passes complete** — q001–q010 (2026-06-28), q011–q024
 (2026-06-29); verified by hand against PMK/PP/UU source text, each `notes` starts
 with `VERIFIED`. Procedure: `docs/building-eval-dataset.md`.
