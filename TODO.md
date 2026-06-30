@@ -27,30 +27,61 @@ Pasal numbers, and Penjelasan collides with batang tubuh. ~5% of articles hold
 
 ## 1. Hand-label ground-truth set — target 50 questions
 
-`data/ground_truth/eval.jsonl` has 10 entries (q001–q010), all `VERIFIED`.
-Full procedure in `docs/building-eval-dataset.md`.
-**Drafting toward 50 is PAUSED pending §0 (ADR 0006).**
+`data/ground_truth/eval.jsonl` has **24 entries (q001–q024), all `VERIFIED`**
+(16 multi, 8 single). Full procedure in `docs/building-eval-dataset.md`.
+**Toward 50 — resume after the seeding work (§2a).** n=16 test is underpowered
+to detect a modest graph effect, so growing the set is also a stats priority.
 
 - [x] Verify the 10 drafts against source text (`DRAFT` → `VERIFIED`). (2026-06-28)
-- [ ] (blocked by §0) Compose ~60% multi-hop / ~40% single-hop; spread across
-      PMK/PP/UU/Perpu/Perpres; no single topic > ~20% (≤10 questions). Decided
-      2026-06-29: tax-focused; PMK/UU/PP + a little Perpu (no Perpres — absent
-      from corpus); next batch of 10 leans 6 multi / 4 single.
+- [x] q011–q024 authored + verified (2026-06-29): Bea Materai (UU 10/2020),
+      PPh final UMKM (PP 23/2018 ↔ PMK 99/2018, cross-reg), PDRD (UU 28/2009).
+- [ ] Continue to 50: tax-focused; PMK/UU/PP + a little Perpu (no Perpres —
+      absent from corpus); ~60% multi / ~40% single; no single topic > ~20%.
 - [x] Write `scripts/validate_ground_truth.py` (resolve every gold ID against
-      ChromaDB and Neo4j). 13/13 IDs resolve in both stores. (2026-06-28)
+      ChromaDB and Neo4j). 36/36 IDs resolve in both stores. (2026-06-28→07-01)
 - [x] Pilot at N=10, dry-run the eval harness end-to-end (run-id `pilot10`,
       baseline+graph → report, paired stats). Surfaced the matched-depth issue
-      (ADR 0005). (2026-06-28) — then scale to 50.
-- [ ] Freeze a held-out 30% (15 q) test split *before* any tuning (ADR 0002).
+      (ADR 0005). (2026-06-28)
+- [x] Freeze a held-out test split *before* any tuning (ADR 0002).
+      `data/ground_truth/split.json` via `scripts.make_split` — dev=8, test=16,
+      stratified, seed 20260701. (2026-07-01)
 
 ## 2. Evaluation harness — `src/evaluation/`
 
-- [ ] Retrieval metrics vs `gold_article_ids`: Recall@K, Precision@K, MRR.
-- [ ] Generation metrics vs `gold_answer`: LLM-as-judge faithfulness + correctness.
-- [ ] Paired per-question delta between pipelines; Wilcoxon signed-rank / paired t-test.
+- [x] Retrieval metrics vs `gold_article_ids`: Recall@K, Precision@K, MRR, hit@K.
+- [x] Paired per-question delta between pipelines; Wilcoxon + paired t-test.
+      `eval report` emits summary + per-question CSV (run v24/v25).
+- [ ] Generation metrics vs `gold_answer`: LLM-as-judge faithfulness + correctness
+      (RAGAS). **Still untested axis** — graph context may improve answers even
+      when ID-recall ties. Run on the test split once seeding lands.
 - [x] **Unit-test the metric functions** with hand-computed cases — this is the
       thesis's measuring instrument; a silent bug here invalidates the conclusion.
       `tests/test_ir_metrics.py`, 28 cases, all pass. (2026-06-28)
+
+## 2a. (NEXT) Hybrid lexical+dense seeding
+
+Diagnosis (2026-07-01): seeding, not ranking, is the retrieval bottleneck —
+41/44 gold IDs are within the dense top-200 but buried below top-5. Prototype
+(dense top-200 ⊕ BM25 pool re-rank, RRF k=60) lifts **held-out test** recall@5
+.469→.521, hit@5 .625→.750, mrr .424→.547 — and generalizes (unlike the graph
+re-rank, §2b, which was a wash on test). See STATUS.md "Retrieval & evaluation".
+
+- [ ] Productionize `hybrid_search()` (no global BM25 index needed — re-rank the
+      dense top-N pool). Add a config toggle; **keep pure-vector retained** for a
+      (dense vs hybrid) × (baseline vs graph) ablation.
+- [ ] Decide framing: hybrid as the new shared seeding (stronger baseline) vs
+      toggle-only ablation. Affects what "baseline" denotes in the thesis.
+- [ ] Re-run the 2×2 + re-tune alpha on hybrid seeds. Key question: do better
+      seeds let graph expansion reach the cross-reg gold (q015–q018)?
+
+## 2b. Strict-parity graph re-ranker — DONE, null result
+
+Commit `1005e85`. Symmetric, degree-damped `sim + alpha*boost`, truncated to the
+TOP_K budget; `scripts.tune_alpha` (retrieval-only, dev-swept). Dev picked
+alpha=0.15 but it is a **wash on held-out test** (recall@5 .469→.469, mrr
+.424→.440). Latency/timeout/precision problems from the append-everything version
+are fixed. Ranking is not the bottleneck — see §2a. Default `GRAPH_RERANK_ALPHA`
+left at 0.15; revisit after hybrid seeding changes the candidate pool.
 
 ## 3. (Lower) OCR `O`→`0` fix
 

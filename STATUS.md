@@ -102,3 +102,49 @@ use both regs" test for multi-hop.
 **Verification passes complete** — q001–q010 (2026-06-28), q011–q024
 (2026-06-29); verified by hand against PMK/PP/UU source text, each `notes` starts
 with `VERIFIED`. Procedure: `docs/building-eval-dataset.md`.
+
+## Retrieval & evaluation (2026-07-01)
+
+**Dev/test split frozen** before tuning (ADR 0002): `data/ground_truth/split.json`
+(`scripts.make_split`, stratified by hop_type, seed 20260701) — **dev = 8** (3
+single, 5 multi), **test = 16** (5 single, 11 multi). Tune on dev, report on test.
+
+**First full comparison (run v24, dense seeds, 24 q).** With the original
+append-only graph retriever, baseline and graph are **identical at top-5 by
+construction** (graph seeds from the same top-5 vectors, then appends neighbors at
+rank 6+). Graph only diverged at deep k (recall@20 +0.13, p=0.03) bought with
+precision collapse and 147-article / 193s contexts that hit Ollama's 300s timeout.
+
+**Strict-parity re-ranker** (commit `1005e85`, `src/graph_rag/retriever.py`):
+seeds + graph neighbors scored `sim + alpha*boost` and truncated to the same
+TOP_K=5 budget, so a linked neighbor can only enter by out-scoring a weak seed.
+`boost` is symmetric (seeds boosted too) and **degree-damped** (`/(1+log(1+deg))`)
+so amendment hubs (UU 1/2022, UU 18/~1997) stop displacing gold seeds — the bug
+that made the naive alpha=0.5 version collapse (test mrr 0.41→0.19). Truncation
+fixed the latency/timeout/precision problems. `gather()` (I/O) is split from
+`rerank()` (pure-python) so `scripts.tune_alpha` sweeps alpha over cached
+candidates retrieval-only. **Result: dev picked alpha=0.15 (recall@5 .375→.500)
+but it is a WASH on held-out test** (recall@5 .469→.469, hit@5 .625→.563, mrr
+.424→.440). Dev gain was n=8 noise. → **Null result on retrieval IR; ranking is
+not the bottleneck.**
+
+**Seeding diagnosis (the real bottleneck).** Gold is mis-ranked, not missing:
+**41/44 gold IDs are within the dense top-200**, just buried below the top-5
+cutoff (e.g. Pasal 156 @174, Pasal 2 @56, Pasal 87 @64, Pasal 3 @48). The 0.6b
+embedding model recalls them but ranks them poorly; only 3/44 are truly absent.
+
+**Hybrid lexical+dense seeding (prototype, measured retrieval-only).** Dense
+top-200 pool ⊕ BM25 re-rank of the pool, fused by RRF (k=60, standard default —
+no tuning). **Generalizes to held-out test**, unlike the graph re-rank:
+
+| metric | dense-only | hybrid (RRF) | test delta |
+|---|---|---|---|
+| recall@5 | 0.469 | 0.521 | +0.052 |
+| hit@5 | 0.625 | 0.750 | +0.125 |
+| mrr | 0.424 | 0.547 | +0.123 |
+
+Lexical signal anchors the cited terms ("Pajak Hotel", regulation names) the
+dense model smears. **Not yet wired into the pipeline** — see `TODO.md §2a`.
+Open: whether hybrid replaces the shared seeding (stronger baseline) or runs as a
+toggle for a (dense vs hybrid)×(baseline vs graph) ablation; and whether better
+seeds finally let graph expansion reach the cross-regulation gold (q015–q018).
