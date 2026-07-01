@@ -42,13 +42,14 @@ class RunResult:
     meta: dict[str, Any] = field(default_factory=dict)
 
 
-def _system_to_pipeline(system: str):
+def _system_to_pipeline(system: str, alpha: float | None = None):
     if system == "baseline":
         from src.baseline_rag.pipeline import BaselineRAGPipeline
         return BaselineRAGPipeline()
     if system == "graph":
         from src.graph_rag.pipeline import GraphRAGPipeline
-        return GraphRAGPipeline()
+        from src.config import GRAPH_RERANK_ALPHA
+        return GraphRAGPipeline(alpha=GRAPH_RERANK_ALPHA if alpha is None else alpha)
     raise ValueError(f"Unknown system: {system!r} (expected 'baseline' or 'graph').")
 
 
@@ -78,16 +79,19 @@ def run_system(
     items: list[EvalItem] | None = None,
     pipeline: Any = None,
     resume: bool = True,
+    alpha: float | None = None,
+    run_meta: dict[str, Any] | None = None,
 ) -> list[RunResult]:
     """
     Run `system` over the eval set; append RunResult rows to disk as they
     complete. Returns the full list of RunResults including any that were
-    resumed from cache.
+    resumed from cache. `run_meta` is stamped on every result for provenance
+    (e.g. seeding mode + alpha), so a run file records the config that made it.
     """
     if items is None:
         items = load_dataset()
     if pipeline is None:
-        pipeline = _system_to_pipeline(system)
+        pipeline = _system_to_pipeline(system, alpha=alpha)
 
     path = _output_path(system, run_id)
     completed = _load_completed(path) if resume else {}
@@ -121,6 +125,7 @@ def run_system(
                 sources=[a.get("source", "") for a in ctx],
                 latency_s=latency,
                 system=system,
+                meta=dict(run_meta or {}),
             )
             fh.write(json.dumps(asdict(result), ensure_ascii=False) + "\n")
             fh.flush()

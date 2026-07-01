@@ -14,9 +14,26 @@ import argparse
 import logging
 import sys
 
+import json
+from pathlib import Path
+
+from src.config import BASE_DIR
+from src.evaluation.dataset import load_dataset
 from src.evaluation.report import report_from_runs
 from src.evaluation.runner import run_system
 from src.evaluation.verify import verify as verify_ground_truth
+
+
+def _split_items(split: str):
+    """Return eval items, optionally filtered to the dev/test split."""
+    items = load_dataset()
+    if split == "all":
+        return items
+    split_path = Path(BASE_DIR) / "data" / "ground_truth" / "split.json"
+    if not split_path.exists():
+        raise SystemExit(f"--split {split} needs {split_path}; run `python -m scripts.make_split`.")
+    ids = set(json.loads(split_path.read_text(encoding="utf-8"))[split])
+    return [it for it in items if it.id in ids]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -30,6 +47,12 @@ def main(argv: list[str] | None = None) -> int:
     p_run.add_argument("--run-id", default="default")
     p_run.add_argument("--no-resume", action="store_true",
                        help="Re-run questions already present in the cache.")
+    p_run.add_argument("--hybrid", action="store_true",
+                       help="Seed with hybrid lexical+dense retrieval.")
+    p_run.add_argument("--alpha", type=float, default=None,
+                       help="Override GRAPH_RERANK_ALPHA (graph only).")
+    p_run.add_argument("--split", choices=["dev", "test", "all"], default="all",
+                       help="Restrict to a ground-truth split (data/ground_truth/split.json).")
 
     p_rep = sub.add_parser("report", help="Build per-question + summary CSVs.")
     p_rep.add_argument("--run-id", default="default")
@@ -47,7 +70,18 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.cmd == "run":
-        run_system(args.system, run_id=args.run_id, resume=not args.no_resume)
+        import src.config as config
+        if args.hybrid:
+            config.USE_HYBRID_SEEDING = True
+        items = _split_items(args.split)
+        run_meta = {
+            "seeding": "hybrid" if args.hybrid else "dense",
+            "alpha": args.alpha if args.alpha is not None else config.GRAPH_RERANK_ALPHA,
+            "split": args.split,
+        }
+        logging.info("run config: %s", run_meta)
+        run_system(args.system, run_id=args.run_id, resume=not args.no_resume,
+                   items=items, alpha=args.alpha, run_meta=run_meta)
         return 0
 
     if args.cmd == "verify":
