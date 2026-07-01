@@ -69,11 +69,16 @@ Diagnosis (2026-07-01): seeding, not ranking, is the retrieval bottleneck —
 - [x] Re-tuned alpha on hybrid dev (=0.10), reported the 2×2 on held-out test.
       **hybrid+graph recall@5 .698, hit@5 .938** vs dense-baseline .469/.625.
       Graph is null on dense seeds, decisive on hybrid seeds. STATUS.md has table.
+- [x] `eval run --hybrid/--alpha/--split` flags (commit `17ec12a`); rows stamped
+      with `meta={seeding,alpha,split}`. Ran the 2×2 on test (`dense_test`,
+      `hyb_test`): hybrid+graph recall@5 0.698 vs hybrid-baseline 0.521,
+      **Wilcoxon p=0.026, 6 wins / 0 losses**; dense+graph null.
 - [ ] **Framing call (thesis):** report hybrid as the shared seeding (stronger
       baseline) or as a toggle-only ablation. Affects what "baseline" denotes.
-- [ ] `eval run --hybrid/--alpha` flags so the four generation runs are
-      reproducible without editing config (currently config-toggle only).
-- [ ] Generation-side eval (RAGAS) on the 2×2 — §2 open item.
+- [ ] Generation-side eval (RAGAS) on the 2×2 — **deferred**: env `ragas` 0.4.3
+      fails to import (`langchain_community.chat_models.vertexai` gone) and
+      `ragas_metrics.py` targets ragas 0.1.x. Answers are cached, so it's a
+      deps-pin + (ideally) a non-`qwen3.5:9b` judge away. See §2.
 - [ ] Consider tuning HYBRID_POOL / RRF_K on dev (kept at defaults for now).
 
 ## 2b. Strict-parity graph re-ranker — DONE, null result

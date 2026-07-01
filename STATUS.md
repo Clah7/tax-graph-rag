@@ -165,6 +165,17 @@ regulation, so its expansion can follow the cross-reg REFERENCES edge. End-to-en
 dense-baseline → hybrid+graph: recall@5 +0.23 (+49% rel), hit@5 +0.31. Trade-off:
 mrr dips (first gold slips to rank 2–3) — immaterial for context-filling.
 
-Still open: generation-side eval (RAGAS faithfulness/correctness) on the 2×2;
-`eval run` flags for `--hybrid`/`--alpha` to make the four runs reproducible;
-larger eval set (n=16 test) to tighten the stats.
+**Harness 2×2 with paired stats** (commit `17ec12a` added `eval run
+--hybrid/--alpha/--split`; runs `dense_test` + `hyb_test`, test split n=16).
+Confirms the retrieval-only numbers with Wilcoxon/paired-t: on hybrid seeds graph
+lifts **recall@5 0.521→0.698 (Wilcoxon p=0.026, 6 wins / 0 losses)**, hit@5
+0.750→0.938 (p=0.083); on dense seeds graph is null (recall@5 p=1.0). mrr dip
+−0.07 (ns). Each run row is stamped with `meta={seeding,alpha,split}`.
+
+**RAGAS (generation-side) deferred** — the env's `ragas` (0.4.3 metadata but
+0.1.x-style `vertexai` import) fails against `langchain-community 0.4.2`, and
+`ragas_metrics.py` targets the old 0.1.x API. Answers are cached in the run files,
+so RAGAS is cheap to add later once deps are pinned — ideally with a judge model
+other than the generator (`qwen3.5:9b`) to avoid self-judge bias. Still open:
+larger eval set (n=16 test underpowered); thesis framing (hybrid as baseline vs
+ablation toggle).
