@@ -47,8 +47,9 @@ def main(argv: list[str] | None = None) -> int:
     p_run.add_argument("--run-id", default="default")
     p_run.add_argument("--no-resume", action="store_true",
                        help="Re-run questions already present in the cache.")
-    p_run.add_argument("--hybrid", action="store_true",
-                       help="Seed with hybrid lexical+dense retrieval.")
+    p_run.add_argument("--hybrid", action=argparse.BooleanOptionalAction, default=None,
+                       help="Force hybrid (--hybrid) or dense (--no-hybrid) seeding; "
+                            "omit to use config.USE_HYBRID_SEEDING (default hybrid).")
     p_run.add_argument("--alpha", type=float, default=None,
                        help="Override GRAPH_RERANK_ALPHA (graph only).")
     p_run.add_argument("--split", choices=["dev", "test", "all"], default="all",
@@ -71,11 +72,11 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.cmd == "run":
         import src.config as config
-        if args.hybrid:
-            config.USE_HYBRID_SEEDING = True
+        if args.hybrid is not None:
+            config.USE_HYBRID_SEEDING = args.hybrid
         items = _split_items(args.split)
         run_meta = {
-            "seeding": "hybrid" if args.hybrid else "dense",
+            "seeding": "hybrid" if config.USE_HYBRID_SEEDING else "dense",
             "alpha": args.alpha if args.alpha is not None else config.GRAPH_RERANK_ALPHA,
             "split": args.split,
         }

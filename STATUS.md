@@ -176,6 +176,12 @@ lifts **recall@5 0.521→0.698 (Wilcoxon p=0.026, 6 wins / 0 losses)**, hit@5
 0.1.x-style `vertexai` import) fails against `langchain-community 0.4.2`, and
 `ragas_metrics.py` targets the old 0.1.x API. Answers are cached in the run files,
 so RAGAS is cheap to add later once deps are pinned — ideally with a judge model
-other than the generator (`qwen3.5:9b`) to avoid self-judge bias. Still open:
-larger eval set (n=16 test underpowered); thesis framing (hybrid as baseline vs
-ablation toggle).
+other than the generator (`qwen3.5:9b`) to avoid self-judge bias.
+
+**Framing decided (2026-07-01): hybrid is the shared baseline.** "Baseline RAG"
+in the thesis = hybrid lexical+dense; GraphRAG builds on the same seeds, isolating
+the graph stage. `USE_HYBRID_SEEDING` now defaults ON and `GRAPH_RERANK_ALPHA`
+defaults to the hybrid-tuned 0.10; pure-vector is the toggle-off ablation floor
+(run without `--hybrid`). Headline comparison is therefore the `hyb_test` cell:
+graph recall@5 0.698 vs baseline 0.521 (Wilcoxon p=0.026). Still open: larger
+eval set (n=16 test underpowered).

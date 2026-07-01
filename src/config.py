@@ -50,14 +50,20 @@ GRAPH_HOP_DEPTH = 2
 # = query_similarity + GRAPH_RERANK_ALPHA * graph_boost, where graph_boost rewards
 # neighbors linked from strong, nearby seeds. Pure similarity (alpha=0) reproduces
 # baseline exactly. TUNE ALPHA ON A HELD-OUT SPLIT, never on the eval test set.
-GRAPH_RERANK_ALPHA = 0.15  # tuned on dev split (scripts.tune_alpha), 2026-07-01
+# Alpha is seeding-mode dependent: dev-best is 0.10 on hybrid seeds (the default),
+# 0.15 on pure-dense seeds.
+GRAPH_RERANK_ALPHA = 0.10  # tuned on hybrid dev split (scripts.tune_alpha --hybrid)
 GRAPH_CONTEXT_BUDGET = TOP_K_VECTOR
 
 # Hybrid lexical+dense seeding (shared by both pipelines via src.seeding).
 # Retrieve a deep dense pool, BM25 re-rank the pool, fuse by Reciprocal Rank
 # Fusion. Diagnosis 2026-07-01: gold is recallable but mis-ranked by the 0.6b
-# embedder; lexical signal anchors cited terms/regulation names. Pure-vector is
-# retained (toggle off) for the (dense vs hybrid) x (baseline vs graph) ablation.
-USE_HYBRID_SEEDING = False
+# embedder; lexical signal anchors cited terms/regulation names.
+#
+# FRAMING (2026-07-01): hybrid is the SHARED BASELINE — "Baseline RAG" in the
+# thesis is hybrid lexical+dense, and GraphRAG builds on the same seeds, so any
+# graph advantage is isolated. Hence default ON. Pure vector is retained (toggle
+# OFF, or `--split ... ` runs without --hybrid) as the ablation floor.
+USE_HYBRID_SEEDING = True
 HYBRID_POOL = 200      # dense candidates re-ranked by BM25 before fusion
 HYBRID_RRF_K = 60      # standard RRF constant (not tuned on eval data)
