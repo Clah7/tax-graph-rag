@@ -27,14 +27,24 @@ Pasal numbers, and Penjelasan collides with batang tubuh. ~5% of articles hold
 
 ## 1. Hand-label ground-truth set — target 50 questions
 
-`data/ground_truth/eval.jsonl` has **24 entries (q001–q024), all `VERIFIED`**
-(16 multi, 8 single). Full procedure in `docs/building-eval-dataset.md`.
-**Toward 50 — resume after the seeding work (§2a).** n=16 test is underpowered
-to detect a modest graph effect, so growing the set is also a stats priority.
+`data/ground_truth/eval.jsonl` has **31 entries, all `VERIFIED`
+(q001–q031)**. Full procedure in `docs/building-eval-dataset.md`. **Toward 50.**
+n=16 test is underpowered to detect a modest graph effect, so growing the set is
+also a stats priority.
 
 - [x] Verify the 10 drafts against source text (`DRAFT` → `VERIFIED`). (2026-06-28)
 - [x] q011–q024 authored + verified (2026-06-29): Bea Materai (UU 10/2020),
       PPh final UMKM (PP 23/2018 ↔ PMK 99/2018, cross-reg), PDRD (UU 28/2009).
+- [x] **Verify q025–q031** (2026-07-04): PBB-P2, PBJT, MBLB (UU 1/2022 HKPD),
+      PPN hasil tembakau / LPG tertentu (PMK 63,62/2022), Pajak Masukan, Pajak
+      Reklame. `validate_ground_truth` clean (51/51 IDs resolve, 0 trivial);
+      each `gold_answer` hand-checked verbatim. Flag: q028/q029 are weak
+      intra-reg multi-hops (compute+tarif in the higher article) — reclassify
+      single or replace with cross-reg pairs later.
+- [ ] **Re-split decision** once verified: the frozen dev=8/test=16 split covers
+      only q001–q024 (ADR 0002). Decide how q025+ enter dev/test **without
+      touching the current held-out test** (e.g. add to dev, or draw a fresh
+      stratified split and re-freeze) — do this *before* any further tuning.
 - [ ] Continue to 50: tax-focused; PMK/UU/PP + a little Perpu (no Perpres —
       absent from corpus); ~60% multi / ~40% single; no single topic > ~20%.
 - [x] Write `scripts/validate_ground_truth.py` (resolve every gold ID against
@@ -91,6 +101,20 @@ alpha=0.15 but it is a **wash on held-out test** (recall@5 .469→.469, mrr
 .424→.440). Latency/timeout/precision problems from the append-everything version
 are fixed. Ranking is not the bottleneck — see §2a. Default `GRAPH_RERANK_ALPHA`
 left at 0.15; revisit after hybrid seeding changes the candidate pool.
+
+## 2c. Thesis writing — started 2026-07-02
+
+Manuscript in Google Docs (Unpad format); Claude.ai Project as drafting assistant
+grounded by `docs/context-packs/`. LaTeX scaffold in `thesis/` exists but is
+untracked and secondary.
+
+- [x] Context packs `docs/context-packs/{METHODOLOGY,RESULTS,GLOSSARY}.md`.
+- [ ] **Re-sync `RESULTS.md`** whenever eval numbers change (static snapshot;
+      currently the n=16 provisional 2×2). Re-upload to the Project after.
+- [ ] Draft BAB I (Pendahuluan) and BAB III (Metodologi) first — best grounded.
+- [ ] BAB II (Tinjauan Pustaka): author citations by hand — context packs carry
+      NONE, to avoid fabricated references.
+- [ ] BAB IV numbers stay provisional until the eval set is frozen at target.
 
 ## 3. (Lower) OCR `O`→`0` fix
 

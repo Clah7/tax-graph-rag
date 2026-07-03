@@ -58,10 +58,24 @@ Raw articles on disk: 144,329 → 118,966 unique after dedup on
 
 ## Ground truth
 
-`data/ground_truth/eval.jsonl` — **24 entries (q001–q024), all `VERIFIED`.**
-Composition: 16 multi-hop (q001–q006, q011–q012, q015–q022), 8 single-hop
-(q007–q010, q013–q014, q023–q024). Target: 50 verified. All 36 unique gold IDs
-resolve in both stores, 0 penjelasan/trivial (`scripts.validate_ground_truth`).
+`data/ground_truth/eval.jsonl` — **31 entries, all `VERIFIED` (q001–q031).**
+Verified composition: 21 multi-hop (q001–q006, q011–q012, q015–q022, q025–q029),
+10 single-hop (q007–q010, q013–q014, q023–q024, q030–q031). Target: 50 verified.
+The 51 unique gold IDs resolve in both stores, 0 penjelasan/trivial
+(`scripts.validate_ground_truth`, 2026-07-04).
+
+**q025–q031 (VERIFIED 2026-07-04)** — 5 multi, 2 single; topics PBB-P2 (q025),
+PBJT (q026), MBLB (q027), PPN hasil tembakau (q028) / LPG tertentu (q029), Pajak
+Masukan (q030), Pajak Reklame (q031). All 15 gold IDs resolve in both stores;
+each `gold_answer` hand-checked verbatim against source text. **Still excluded
+from the frozen split** — the dev=8/test=16 split stays fixed on q001–q024
+(ADR 0002). Assigning the new rows to dev/test requires a re-split decision
+*before* any further tuning, without touching the current held-out test.
+**Caveat:** q028/q029 are weak intra-regulation multi-hops — the full
+computation+tarif sits in the higher article (PMK 63 Pasal 3 / PMK 62 Pasal 4),
+the lower article (Pasal 2) only supplies the "dikenai PPN" framing. Real
+REFERENCES edges, but a poorer graph-win demonstration than the cross-reg
+q015–q018; candidates to reclassify single-hop or replace.
 
 Topic spread: cukai (PMK 82/2024) ×2, disiplin PNS (PP 53/2010) ×3,
 ketenagakerjaan (UU 13/2003) ×3, PPh 21 (PMK 168/2023) ×2, Bea Materai
@@ -185,3 +199,16 @@ defaults to the hybrid-tuned 0.10; pure-vector is the toggle-off ablation floor
 (run without `--hybrid`). Headline comparison is therefore the `hyb_test` cell:
 graph recall@5 0.698 vs baseline 0.521 (Wilcoxon p=0.026). Still open: larger
 eval set (n=16 test underpowered).
+
+## Thesis writing (2026-07-02)
+
+Writing surface decided: **Google Docs** for the manuscript (Universitas
+Padjadjaran format), with a **Claude.ai Project** as the drafting assistant. To
+keep the LLM grounded, repo-derived **context packs** live in
+`docs/context-packs/` (`METHODOLOGY.md`, `RESULTS.md`, `GLOSSARY.md`) — uploaded
+as Project Knowledge. **`RESULTS.md` must be re-synced whenever the eval numbers
+change** (it is a static snapshot; current numbers are the n=16 provisional 2×2).
+A LaTeX scaffold under `thesis/` (Unpad template, `Header/` + `Isi/`) exists but
+is **untracked** and secondary to the Docs workflow. Citation discipline: context
+packs contain **no citations**; the literature review is authored by hand to
+avoid fabricated references.
