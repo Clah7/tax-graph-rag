@@ -45,8 +45,20 @@ also a stats priority.
       only q001–q024 (ADR 0002). Decide how q025+ enter dev/test **without
       touching the current held-out test** (e.g. add to dev, or draw a fresh
       stratified split and re-freeze) — do this *before* any further tuning.
-- [ ] Continue to 50: tax-focused; PMK/UU/PP + a little Perpu (no Perpres —
-      absent from corpus); ~60% multi / ~40% single; no single topic > ~20%.
+- [ ] **Continue to 50 — target composition** (literature-grounded, see
+      STATUS "Ground-truth target composition"). Author the remaining 19 as
+      **9 multi + 10 single** to land the final 50 at **30 multi / 20 single
+      (60/40)**. Make **all 9 new multi cross-regulation** (gold IDs span ≥2
+      regs) → cross-reg 4→13 (~43% of multi), GraphRAG's sharpest case. Every
+      new multi must pass the **non-skippability gate** (drop either gold
+      article ⇒ answer wrong/incomplete; MuSiQue criterion). Tax-focused;
+      PMK/UU/PP + a little Perpu (no Perpres — absent from corpus); keep every
+      regulation ≤10 rows (≤20%) — UU 28/2009 is at 6, **freeze it**; introduce
+      2–3 new families rather than deepening existing ones. Sources: prefer the
+      norm↔pelaksana delegation pattern (UU → PP/PMK), the q015–q018 shape.
+- [ ] **Reclassify or fix q028/q029** under the non-skippability gate before
+      the final freeze — they are skippable intra-reg multi-hops (compute+tarif
+      sits in the higher article; the lower one only supplies the object framing).
 - [x] Write `scripts/validate_ground_truth.py` (resolve every gold ID against
       ChromaDB and Neo4j). 36/36 IDs resolve in both stores. (2026-06-28→07-01)
 - [x] Pilot at N=10, dry-run the eval harness end-to-end (run-id `pilot10`,
@@ -61,6 +73,10 @@ also a stats priority.
 - [x] Retrieval metrics vs `gold_article_ids`: Recall@K, Precision@K, MRR, hit@K.
 - [x] Paired per-question delta between pipelines; Wilcoxon + paired t-test.
       `eval report` emits summary + per-question CSV (run v24/v25).
+- [ ] **Add paired bootstrap 95% CIs** on the per-question metric deltas
+      (10,000 resamples) alongside the Wilcoxon p — the standard small-n
+      presentation (RAG-eval survey, arXiv 2405.07437). Report effect + CI, not
+      p alone, and state the n-underpowered caveat explicitly in BAB IV.
 - [ ] Generation metrics vs `gold_answer`: LLM-as-judge faithfulness + correctness
       (RAGAS). **Still untested axis** — graph context may improve answers even
       when ID-recall ties. Run on the test split once seeding lands.

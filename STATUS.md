@@ -77,6 +77,35 @@ the lower article (Pasal 2) only supplies the "dikenai PPN" framing. Real
 REFERENCES edges, but a poorer graph-win demonstration than the cross-reg
 q015–q018; candidates to reclassify single-hop or replace.
 
+### Ground-truth target composition (2026-07-04, literature-grounded)
+
+**Current @ 31:** 21 multi / 10 single (68/32); of the 21 multi only **4 are
+cross-regulation** (q015–q018), 17 intra-reg; max topic = UU 28/2009 ×6 (19%).
+
+**Target @ 50** (author the remaining 19 as 9 multi + 10 single):
+
+| Dimension | Target @ 50 | Now @ 31 | Basis |
+|---|---|---|---|
+| multi / single | 30 / 20 (60/40) | 21 / 10 | multi = graph's case; single = specificity controls (RAG-vs-GraphRAG, arXiv 2502.11371; GraphRAG-Bench 2506.02404) |
+| cross-reg multi | ~13 / 30 (~43%) | 4 / 21 | crossing a reg boundary via REFERENCES/delegation is GraphRAG's sharpest case |
+| max per regulation | ≤10 (20%) | 6 | external validity — no single reg dominates the metric |
+
+**Rules (see CLAUDE.md "Multi-hop authoring rule"):** every new multi must pass
+the **non-skippability** gate (drop either gold ⇒ answer wrong/incomplete;
+MuSiQue, arXiv 2011.01060) and should be **cross-regulation**; single-hop are
+controls the graph should *not* lift. Keep every reg ≤10 — **freeze UU 28/2009
+at 6**, introduce 2–3 new families. Prefer the norm↔pelaksana delegation pattern
+(UU → PP/PMK), the q015–q018 shape. q028/q029 are skippable and slated to
+reclassify/fix before the final freeze.
+
+**Stats note:** benchmark eval sets are far larger (HotpotQA subset 1,000;
+MultiHop-RAG 2,556) but auto-generated; n=50 hand-verified trades scale for
+defensibility. Credibility therefore rests on paired stats + construction rigor,
+not scale — report **Wilcoxon p + paired bootstrap 95% CI** and state the
+n-underpowered caveat explicitly. Graph-construction recall (~20k unresolved
+REFERENCES edges from OCR) is an upper bound on achievable graph recall — name it
+when framing a modest/null cell.
+
 Topic spread: cukai (PMK 82/2024) ×2, disiplin PNS (PP 53/2010) ×3,
 ketenagakerjaan (UU 13/2003) ×3, PPh 21 (PMK 168/2023) ×2, Bea Materai
 (UU 10/2020) ×4 (q011–q014), PPh final UMKM (PP 23/2018 ↔ PMK 99/2018) ×4
