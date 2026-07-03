@@ -46,19 +46,21 @@ also a stats priority.
       touching the current held-out test** (e.g. add to dev, or draw a fresh
       stratified split and re-freeze) — do this *before* any further tuning.
 - [ ] **Continue to 50 — target composition** (literature-grounded, see
-      STATUS "Ground-truth target composition"). Author the remaining 19 as
-      **9 multi + 10 single** to land the final 50 at **30 multi / 20 single
-      (60/40)**. Make **all 9 new multi cross-regulation** (gold IDs span ≥2
-      regs) → cross-reg 4→13 (~43% of multi), GraphRAG's sharpest case. Every
-      new multi must pass the **non-skippability gate** (drop either gold
-      article ⇒ answer wrong/incomplete; MuSiQue criterion). Tax-focused;
-      PMK/UU/PP + a little Perpu (no Perpres — absent from corpus); keep every
-      regulation ≤10 rows (≤20%) — UU 28/2009 is at 6, **freeze it**; introduce
-      2–3 new families rather than deepening existing ones. Sources: prefer the
-      norm↔pelaksana delegation pattern (UU → PP/PMK), the q015–q018 shape.
-- [ ] **Reclassify or fix q028/q029** under the non-skippability gate before
-      the final freeze — they are skippable intra-reg multi-hops (compute+tarif
-      sits in the higher article; the lower one only supplies the object framing).
+      STATUS "Ground-truth target composition"). Now at 19 multi / 12 single;
+      author the remaining 19 as **11 multi + 8 single** to land the final 50 at
+      **30 multi / 20 single (60/40)**. Make **all 11 new multi cross-regulation**
+      (gold IDs span ≥2 regs) → cross-reg 4→15 (~50% of multi), GraphRAG's
+      sharpest case. Every new multi must pass the **non-skippability gate**
+      (drop either gold article ⇒ answer wrong/incomplete; MuSiQue criterion).
+      Tax-focused; PMK/UU/PP + a little Perpu (no Perpres — absent from corpus);
+      keep every regulation ≤10 rows (≤20%) — UU 28/2009 is at 6, **freeze it**;
+      introduce 2–3 new families rather than deepening existing ones. Sources:
+      prefer the norm↔pelaksana delegation pattern (UU → PP/PMK), the q015–q018
+      shape.
+- [x] **Reclassify q028/q029 multi→single** (2026-07-04) under the
+      non-skippability gate — skippable intra-reg multi-hops; dropped Pasal 2
+      from gold, each now a single-hop control (gold = sufficient article,
+      PMK 63 Pasal 3 / PMK 62 Pasal 4). `validate_ground_truth` clean (49/49).
 - [x] Write `scripts/validate_ground_truth.py` (resolve every gold ID against
       ChromaDB and Neo4j). 36/36 IDs resolve in both stores. (2026-06-28→07-01)
 - [x] Pilot at N=10, dry-run the eval harness end-to-end (run-id `pilot10`,

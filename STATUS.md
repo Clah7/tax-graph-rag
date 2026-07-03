@@ -59,35 +59,35 @@ Raw articles on disk: 144,329 → 118,966 unique after dedup on
 ## Ground truth
 
 `data/ground_truth/eval.jsonl` — **31 entries, all `VERIFIED` (q001–q031).**
-Verified composition: 21 multi-hop (q001–q006, q011–q012, q015–q022, q025–q029),
-10 single-hop (q007–q010, q013–q014, q023–q024, q030–q031). Target: 50 verified.
-The 51 unique gold IDs resolve in both stores, 0 penjelasan/trivial
+Verified composition: 19 multi-hop (q001–q006, q011–q012, q015–q022, q025–q027),
+12 single-hop (q007–q010, q013–q014, q023–q024, q028–q031). Target: 50 verified.
+The 49 unique gold IDs resolve in both stores, 0 penjelasan/trivial
 (`scripts.validate_ground_truth`, 2026-07-04).
 
-**q025–q031 (VERIFIED 2026-07-04)** — 5 multi, 2 single; topics PBB-P2 (q025),
+**q025–q031 (VERIFIED 2026-07-04)** — 3 multi, 4 single; topics PBB-P2 (q025),
 PBJT (q026), MBLB (q027), PPN hasil tembakau (q028) / LPG tertentu (q029), Pajak
-Masukan (q030), Pajak Reklame (q031). All 15 gold IDs resolve in both stores;
-each `gold_answer` hand-checked verbatim against source text. **Still excluded
-from the frozen split** — the dev=8/test=16 split stays fixed on q001–q024
-(ADR 0002). Assigning the new rows to dev/test requires a re-split decision
-*before* any further tuning, without touching the current held-out test.
-**Caveat:** q028/q029 are weak intra-regulation multi-hops — the full
-computation+tarif sits in the higher article (PMK 63 Pasal 3 / PMK 62 Pasal 4),
-the lower article (Pasal 2) only supplies the "dikenai PPN" framing. Real
-REFERENCES edges, but a poorer graph-win demonstration than the cross-reg
-q015–q018; candidates to reclassify single-hop or replace.
+Masukan (q030), Pajak Reklame (q031). Gold IDs resolve in both stores; each
+`gold_answer` hand-checked verbatim against source text. **Still excluded from
+the frozen split** — the dev=8/test=16 split stays fixed on q001–q024 (ADR 0002).
+Assigning the new rows to dev/test requires a re-split decision *before* any
+further tuning, without touching the current held-out test.
+**q028/q029 reclassified multi→single (2026-07-04):** they were skippable
+intra-reg multi-hops (compute+tarif fully in PMK 63 Pasal 3 / PMK 62 Pasal 4;
+Pasal 2 only framing). Per the non-skippability gate, Pasal 2 was dropped from
+gold and each is now a single-hop control (gold = the sufficient article).
 
 ### Ground-truth target composition (2026-07-04, literature-grounded)
 
-**Current @ 31:** 21 multi / 10 single (68/32); of the 21 multi only **4 are
-cross-regulation** (q015–q018), 17 intra-reg; max topic = UU 28/2009 ×6 (19%).
+**Current @ 31:** 19 multi / 12 single (61/39, already on-target after the
+q028/q029 reclass); of the 19 multi only **4 are cross-regulation** (q015–q018),
+15 intra-reg; max topic = UU 28/2009 ×6 (19%).
 
-**Target @ 50** (author the remaining 19 as 9 multi + 10 single):
+**Target @ 50** (author the remaining 19 as 11 multi + 8 single):
 
 | Dimension | Target @ 50 | Now @ 31 | Basis |
 |---|---|---|---|
-| multi / single | 30 / 20 (60/40) | 21 / 10 | multi = graph's case; single = specificity controls (RAG-vs-GraphRAG, arXiv 2502.11371; GraphRAG-Bench 2506.02404) |
-| cross-reg multi | ~13 / 30 (~43%) | 4 / 21 | crossing a reg boundary via REFERENCES/delegation is GraphRAG's sharpest case |
+| multi / single | 30 / 20 (60/40) | 19 / 12 | multi = graph's case; single = specificity controls (RAG-vs-GraphRAG, arXiv 2502.11371; GraphRAG-Bench 2506.02404) |
+| cross-reg multi | ~13 / 30 (~43%) | 4 / 19 | crossing a reg boundary via REFERENCES/delegation is GraphRAG's sharpest case |
 | max per regulation | ≤10 (20%) | 6 | external validity — no single reg dominates the metric |
 
 **Rules (see CLAUDE.md "Multi-hop authoring rule"):** every new multi must pass
