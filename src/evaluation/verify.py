@@ -49,10 +49,38 @@ SEP = "=" * 72
 SUB = "-" * 72
 
 
+def _batang_tubuh_score(a: dict) -> tuple:
+    """Rank duplicate occurrences of one id so the batang tubuh (main body) beats
+    its penjelasan (elucidation). articles.json stores both under the same id
+    (~19k dup ids, ADR 0006); a plain dict-comp keeps the last (often the bare
+    'Cukup jelas.' penjelasan), which misleads the verifier. Prefer non-penjelasan,
+    then the longer text — the substantive body. (`references` is NOT a reliable
+    signal: a mislabeled collision can carry one while the true article doesn't.)"""
+    content = (a.get("content") or "").strip()
+    is_penjelasan = (
+        content.lower().rstrip(".") == "cukup jelas"
+        or content.startswith(("Ayat (", "Huruf ", "Angka "))
+    )
+    return (not is_penjelasan, len(content))
+
+
+# ids that collide in articles.json — flagged during verify so the human double-checks.
+DUPLICATED_IDS: set[tuple[str, str]] = set()
+
+
 def _load_articles() -> dict:
     with open(ARTICLES_JSON, encoding="utf-8") as f:
         arts = json.load(f)
-    return {(a["regulation_id"], a["article_number"]): a for a in arts}
+    best: dict = {}
+    DUPLICATED_IDS.clear()
+    for a in arts:
+        key = (a["regulation_id"], a["article_number"])
+        if key in best:
+            DUPLICATED_IDS.add(key)
+            if _batang_tubuh_score(a) <= _batang_tubuh_score(best[key]):
+                continue
+        best[key] = a
+    return best
 
 
 def _load_rows(path: Path) -> list[dict]:
@@ -83,7 +111,8 @@ def _show_article(articles: dict, gid: str) -> None:
         return
     refs = a.get("references") or []
     xrefs = a.get("cross_regulation_references") or []
-    print(f"{SUB}\n{gid}   (refs={refs}  xrefs={xrefs})\n{SUB}")
+    dup = "  [DUP id — showing batang tubuh; double-check vs Neo4j]" if (reg, art) in DUPLICATED_IDS else ""
+    print(f"{SUB}\n{gid}   (refs={refs}  xrefs={xrefs}){dup}\n{SUB}")
     print(a.get("content", "").strip())
 
 

@@ -68,3 +68,34 @@ decisions and their rationale see `docs/decisions/`.
   started. Established the verify convention (notes prefix `DRAFT` vs
   `VERIFIED <date>`) and the rule to re-derive gold from source text to decouple
   it from GraphRAG.
+
+## 2026-07-05 — Eval grown to 50; pre-freeze gold adjudication; verify.py collision fix
+
+- **Ground truth → 50:** authored q032–q050 (19 rows), cross-reg-first. After the
+  adjudication below the set is 50 rows, **29 multi / 21 single, 13 cross-reg**
+  (all still `DRAFT` — human verify pass pending). All gold ids resolve in Neo4j.
+- **Pre-freeze gold adjudication** (before any re-split, per ADR 0002): pilot-ran
+  both systems over q032–q050 (`run-id adjudicate`), surfaced rows where gold was
+  missed at top-5, and adjudicated each by reading the pasal in `articles.json` —
+  the model answer treated only as a flag, never as truth.
+- **Data finding — `articles.json` duplicate ids:** ~**19,246** ids appear more
+  than once (batang tubuh + penjelasan under one `reg::art`; ADR 0006). A
+  dict-comp reader keeps the *last* occurrence → the `Cukup jelas.` penjelasan.
+  This hit 8/30 new gold ids and made correct gold look wrong. **ChromaDB and
+  Neo4j each hold the single correct body — retrieval and gold are sound.**
+- **Fix — `verify.py`:** `_load_articles()` now keeps the batang tubuh per id
+  (prefer non-penjelasan, then longest; `references` is not a reliable signal —
+  a mislabeled collision can carry one). Duplicated ids are recorded in
+  `DUPLICATED_IDS` and flagged inline during verify. Confirmed 8/8 affected gold
+  ids now display the body matching Neo4j.
+- **q035 reclassified multi → single:** old gold `UU 10/1995::7 ⊕ 39/PMK.04/2006::7`.
+  PMK 39/2006 is revoked by 158/PMK.04/2017 with no successor article mapping the
+  sanction, and `UU 10/1995::7` ayat (3) already states the sanction + amount
+  (denda Rp2,5jt–25jt) — so the PMK was skippable. New gold `[UU 10 TAHUN 1995::7]`.
+- **q037 flag retracted:** `144/PMK.02/2016` does *not* revoke `17/PMK.02/2015`
+  (different insentif structure) — gold `17/PMK.02/2015::5` stands, no change.
+- **Retrieval finding (for BAB IV/limitations):** the retriever systematically
+  under-ranks current regs in favour of older near-duplicate versions of the same
+  provision (q032 → 2008/2010/2012 pemungut PMKs over the 2017 gold; q046 → older
+  KUP versions); graph rerank dropped a correct gold out of top-5 in q043
+  (recall 1.0 → 0.0). Real signal, not gold defects.

@@ -58,45 +58,37 @@ Raw articles on disk: 144,329 → 118,966 unique after dedup on
 
 ## Ground truth
 
-`data/ground_truth/eval.jsonl` — **31 entries, all `VERIFIED` (q001–q031).**
-Verified composition: 19 multi-hop (q001–q006, q011–q012, q015–q022, q025–q027),
-12 single-hop (q007–q010, q013–q014, q023–q024, q028–q031). Target: 50 verified.
-The 49 unique gold IDs resolve in both stores, 0 penjelasan/trivial
-(`scripts.validate_ground_truth`, 2026-07-04).
+`data/ground_truth/eval.jsonl` — **50 entries, all `VERIFIED` (q001–q050)** — at
+target. Composition: **29 multi-hop / 21 single-hop; 13 cross-regulation
+multi-hops**. 78 unique gold IDs, all resolve as both Neo4j `:Article` and ChromaDB
+docs (gold = batang tubuh, not the `articles.json` penjelasan collisions; ADR 0006).
+Procedure: `docs/building-eval-dataset.md`; adjudication log in
+`docs/research-log.md` (2026-07-05).
 
-**q025–q031 (VERIFIED 2026-07-04)** — 3 multi, 4 single; topics PBB-P2 (q025),
-PBJT (q026), MBLB (q027), PPN hasil tembakau (q028) / LPG tertentu (q029), Pajak
-Masukan (q030), Pajak Reklame (q031). Gold IDs resolve in both stores; each
-`gold_answer` hand-checked verbatim against source text. **Still excluded from
-the frozen split** — the dev=8/test=16 split stays fixed on q001–q024 (ADR 0002).
-Assigning the new rows to dev/test requires a re-split decision *before* any
-further tuning, without touching the current held-out test.
-**q028/q029 reclassified multi→single (2026-07-04):** they were skippable
-intra-reg multi-hops (compute+tarif fully in PMK 63 Pasal 3 / PMK 62 Pasal 4;
-Pasal 2 only framing). Per the non-skippability gate, Pasal 2 was dropped from
-gold and each is now a single-hop control (gold = the sufficient article).
+**q032–q050 (VERIFIED 2026-07-05)** — 19 new rows, cross-reg-first: PPh 22
+pemungutan (UU 7/1983 ↔ PMK), cukai/kepabeanan delegations, biaya jabatan, natura
+(UU HPP ↔ PP 55/2022), PPh 21 TER (PP 58/2023 ↔ PMK 168/2023), fasilitas penanaman
+modal, UMKM final, KUP SPT denda, plus single-hop controls. Authored bottom-up from
+REFERENCES hubs + top-down for current-law pairs; each gold read against source text.
+**q035 reclassified multi→single (2026-07-05):** its PMK gold (39/PMK.04/2006) was
+revoked with no successor mapping and `UU 10/1995::7` ayat (3) already carries the
+sanction + amount (skippable) → gold = `UU 10 TAHUN 1995::7`.
 
-### Ground-truth target composition (2026-07-04, literature-grounded)
+### Ground-truth composition (achieved @ 50)
 
-**Current @ 31:** 19 multi / 12 single (61/39, already on-target after the
-q028/q029 reclass); of the 19 multi only **4 are cross-regulation** (q015–q018),
-15 intra-reg; max topic = UU 28/2009 ×6 (19%).
+| Dimension | Target @ 50 | Achieved @ 50 |
+|---|---|---|
+| multi / single | 30 / 20 (60/40) | **29 / 21 (58/42)** |
+| cross-reg multi | ~13 | **13** |
+| max per regulation | ≤10 (20%) | ≤10 (UU 28/2009 frozen at 6) |
 
-**Target @ 50** (author the remaining 19 as 11 multi + 8 single):
+29/21 rather than 30/20 because **q035 was reclassified multi→single** during
+pre-freeze gold adjudication — a defensibility fix, not a shortfall.
 
-| Dimension | Target @ 50 | Now @ 31 | Basis |
-|---|---|---|---|
-| multi / single | 30 / 20 (60/40) | 19 / 12 | multi = graph's case; single = specificity controls (RAG-vs-GraphRAG, arXiv 2502.11371; GraphRAG-Bench 2506.02404) |
-| cross-reg multi | ~13 / 30 (~43%) | 4 / 19 | crossing a reg boundary via REFERENCES/delegation is GraphRAG's sharpest case |
-| max per regulation | ≤10 (20%) | 6 | external validity — no single reg dominates the metric |
-
-**Rules (see CLAUDE.md "Multi-hop authoring rule"):** every new multi must pass
-the **non-skippability** gate (drop either gold ⇒ answer wrong/incomplete;
-MuSiQue, arXiv 2011.01060) and should be **cross-regulation**; single-hop are
-controls the graph should *not* lift. Keep every reg ≤10 — **freeze UU 28/2009
-at 6**, introduce 2–3 new families. Prefer the norm↔pelaksana delegation pattern
-(UU → PP/PMK), the q015–q018 shape. q028/q029 are skippable and slated to
-reclassify/fix before the final freeze.
+**Split re-frozen at 50 (ADR 0007):** fresh stratified split (seed 20260701,
+dev_frac 0.34) → **dev 17 / test 33** (8 cross-reg multi in test). Sound despite
+ADR 0002 because **alpha is frozen** (0.10 hybrid / 0.15 dense) and NOT re-tuned
+after the re-split. Supersedes the old q001–q024 dev=8/test=16 split.
 
 **Stats note:** benchmark eval sets are far larger (HotpotQA subset 1,000;
 MultiHop-RAG 2,556) but auto-generated; n=50 hand-verified trades scale for
@@ -191,29 +183,26 @@ dense model smears.
 
 **Wired in** (commit `69e8c99`): `src/hybrid_search.py` + `src/seeding.py`
 dispatch (`USE_HYBRID_SEEDING` toggle, default off so the pure-vector baseline is
-preserved), shared by both pipelines. **The 2×2 on held-out test** (alpha
-re-tuned on dev only, hybrid dev-best = 0.10):
+preserved), shared by both pipelines. **The 2×2 on the held-out test — v50,
+test n=33** (ADR 0007 split; alpha frozen, NOT re-tuned; runs `hyb_test_v50` /
+`dense_test_v50`, paired bootstrap 95% CIs):
 
 | system | recall@5 | hit@5 | mrr |
 |---|---|---|---|
-| dense-baseline | 0.469 | 0.625 | 0.424 |
-| hybrid-baseline | 0.521 | 0.750 | 0.547 |
-| dense + graph (α=0.15) | 0.469 | 0.563 | 0.440 |
-| **hybrid + graph (α=0.10)** | **0.698** | **0.938** | 0.477 |
+| dense-baseline | 0.470 | 0.606 | 0.437 |
+| hybrid-baseline | 0.571 | 0.758 | 0.452 |
+| dense + graph (α=0.15) | 0.490 | 0.576 | 0.443 |
+| **hybrid + graph (α=0.10)** | **0.677** | **0.848** | 0.503 |
 
-**Key finding: graph expansion is null on dense seeds but decisive on hybrid
-seeds** — recall@5 0.521→0.698, hit@5 0.750→0.938 (gold reaches the LLM for 15/16
-test questions). The graph win only materializes once seeds land in the right
-regulation, so its expansion can follow the cross-reg REFERENCES edge. End-to-end
-dense-baseline → hybrid+graph: recall@5 +0.23 (+49% rel), hit@5 +0.31. Trade-off:
-mrr dips (first gold slips to rank 2–3) — immaterial for context-filling.
-
-**Harness 2×2 with paired stats** (commit `17ec12a` added `eval run
---hybrid/--alpha/--split`; runs `dense_test` + `hyb_test`, test split n=16).
-Confirms the retrieval-only numbers with Wilcoxon/paired-t: on hybrid seeds graph
-lifts **recall@5 0.521→0.698 (Wilcoxon p=0.026, 6 wins / 0 losses)**, hit@5
-0.750→0.938 (p=0.083); on dense seeds graph is null (recall@5 p=1.0). mrr dip
-−0.07 (ns). Each run row is stamped with `meta={seeding,alpha,split}`.
+**Key finding holds: graph expansion is null on dense seeds, decisive on hybrid
+seeds.** Headline (hybrid baseline → hybrid+graph): **recall@5 0.571→0.677,
+Δ=+0.106, 95% CI [+0.020,+0.202], Wilcoxon p=0.044, 7 wins / 1 loss**; precision@5
+also significant (Δ=+0.042, p=0.035); hit@5 0.758→0.848 (p=0.18). Dense seeds:
+graph null (recall@5 Δ=+0.020, p=0.55). Multi-hop slice: recall@5 Δ=+0.132 (CI
+[+0.009,+0.263]) but Wilcoxon marginal (p=0.079, n=19); single-hop controls barely
+move (+0.071, ns). vs the old n=16: effect moderated (Δ 0.177→0.106; p 0.026→0.044)
+— larger n, proper CI, still significant. Each run row is stamped with
+`meta={seeding,alpha,split}`. Full table + caveats: `docs/context-packs/RESULTS.md` §0.
 
 **RAGAS (generation-side) deferred** — the env's `ragas` (0.4.3 metadata but
 0.1.x-style `vertexai` import) fails against `langchain-community 0.4.2`, and
@@ -225,9 +214,9 @@ other than the generator (`qwen3.5:9b`) to avoid self-judge bias.
 in the thesis = hybrid lexical+dense; GraphRAG builds on the same seeds, isolating
 the graph stage. `USE_HYBRID_SEEDING` now defaults ON and `GRAPH_RERANK_ALPHA`
 defaults to the hybrid-tuned 0.10; pure-vector is the toggle-off ablation floor
-(run without `--hybrid`). Headline comparison is therefore the `hyb_test` cell:
-graph recall@5 0.698 vs baseline 0.521 (Wilcoxon p=0.026). Still open: larger
-eval set (n=16 test underpowered).
+(run without `--hybrid`). Headline comparison is therefore the `hyb_test_v50` cell:
+graph recall@5 0.677 vs baseline 0.571 (Wilcoxon p=0.044, 95% CI [+0.020,+0.202]).
+Eval set now frozen at 50 (test n=33); still open: RAGAS generation-side eval.
 
 ## Thesis writing (2026-07-02)
 
@@ -236,7 +225,7 @@ Padjadjaran format), with a **Claude.ai Project** as the drafting assistant. To
 keep the LLM grounded, repo-derived **context packs** live in
 `docs/context-packs/` (`METHODOLOGY.md`, `RESULTS.md`, `GLOSSARY.md`) — uploaded
 as Project Knowledge. **`RESULTS.md` must be re-synced whenever the eval numbers
-change** (it is a static snapshot; current numbers are the n=16 provisional 2×2).
+change** (a static snapshot; current numbers are the v50 test n=33 headline, §0).
 A LaTeX scaffold under `thesis/` (Unpad template, `Header/` + `Isi/`) exists but
 is **untracked** and secondary to the Docs workflow. Citation discipline: context
 packs contain **no citations**; the literature review is authored by hand to
