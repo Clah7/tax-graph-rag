@@ -27,10 +27,9 @@ Pasal numbers, and Penjelasan collides with batang tubuh. ~5% of articles hold
 
 ## 1. Hand-label ground-truth set — target 50 questions
 
-`data/ground_truth/eval.jsonl` has **31 entries, all `VERIFIED`
-(q001–q031)**. Full procedure in `docs/building-eval-dataset.md`. **Toward 50.**
-n=16 test is underpowered to detect a modest graph effect, so growing the set is
-also a stats priority.
+`data/ground_truth/eval.jsonl` is at **target: 50 entries, all `VERIFIED`
+(q001–q050)** — 29 multi / 21 single, 13 cross-reg. Full procedure in
+`docs/building-eval-dataset.md`.
 
 - [x] Verify the 10 drafts against source text (`DRAFT` → `VERIFIED`). (2026-06-28)
 - [x] q011–q024 authored + verified (2026-06-29): Bea Materai (UU 10/2020),
@@ -41,22 +40,21 @@ also a stats priority.
       each `gold_answer` hand-checked verbatim. Flag: q028/q029 are weak
       intra-reg multi-hops (compute+tarif in the higher article) — reclassify
       single or replace with cross-reg pairs later.
-- [ ] **Re-split decision** once verified: the frozen dev=8/test=16 split covers
-      only q001–q024 (ADR 0002). Decide how q025+ enter dev/test **without
-      touching the current held-out test** (e.g. add to dev, or draw a fresh
-      stratified split and re-freeze) — do this *before* any further tuning.
-- [ ] **Continue to 50 — target composition** (literature-grounded, see
-      STATUS "Ground-truth target composition"). Now at 19 multi / 12 single;
-      author the remaining 19 as **11 multi + 8 single** to land the final 50 at
-      **30 multi / 20 single (60/40)**. Make **all 11 new multi cross-regulation**
-      (gold IDs span ≥2 regs) → cross-reg 4→15 (~50% of multi), GraphRAG's
-      sharpest case. Every new multi must pass the **non-skippability gate**
-      (drop either gold article ⇒ answer wrong/incomplete; MuSiQue criterion).
-      Tax-focused; PMK/UU/PP + a little Perpu (no Perpres — absent from corpus);
-      keep every regulation ≤10 rows (≤20%) — UU 28/2009 is at 6, **freeze it**;
-      introduce 2–3 new families rather than deepening existing ones. Sources:
-      prefer the norm↔pelaksana delegation pattern (UU → PP/PMK), the q015–q018
-      shape.
+- [x] **Re-split decision** (2026-07-05, ADR 0007): fresh stratified split over
+      all 50 (seed 20260701, dev_frac 0.34) → dev 17 / test 33 (8 cross-reg multi
+      in test). Leakage-free because alpha is frozen (not re-tuned). Supersedes
+      the old q001–q024 dev=8/test=16 split.
+- [x] **Grew to 50** (2026-07-05): authored q032–q050 (11 cross-reg multi +
+      8 single), each gold read against source text. Cross-reg 4→13; new families
+      (cukai/kepabeanan, natura/HPP, PPh 21 TER, penanaman modal); UU 28/2009
+      frozen at 6. q035 later reclassified multi→single in adjudication → final
+      29 multi / 21 single.
+- [x] **Pre-freeze gold adjudication** (2026-07-05, log in `docs/research-log.md`):
+      pilot-ran both systems, surfaced missed-gold rows, adjudicated by reading
+      the law (model output as flag only). Fixed `verify.py` articles.json
+      duplicate-id collision (ADR 0006: prefer batang tubuh, flag ~19k dup ids;
+      8/8 affected gold now display correctly). q035 reclassified; q037 currency
+      flag retracted.
 - [x] **Reclassify q028/q029 multi→single** (2026-07-04) under the
       non-skippability gate — skippable intra-reg multi-hops; dropped Pasal 2
       from gold, each now a single-hop control (gold = sufficient article,
@@ -75,10 +73,12 @@ also a stats priority.
 - [x] Retrieval metrics vs `gold_article_ids`: Recall@K, Precision@K, MRR, hit@K.
 - [x] Paired per-question delta between pipelines; Wilcoxon + paired t-test.
       `eval report` emits summary + per-question CSV (run v24/v25).
-- [ ] **Add paired bootstrap 95% CIs** on the per-question metric deltas
-      (10,000 resamples) alongside the Wilcoxon p — the standard small-n
-      presentation (RAG-eval survey, arXiv 2405.07437). Report effect + CI, not
-      p alone, and state the n-underpowered caveat explicitly in BAB IV.
+- [x] **Paired bootstrap 95% CIs** (2026-07-05): `stats.py` adds `ci_low`/`ci_high`
+      (10k seeded resamples of per-question deltas); flow into the summary CSV via
+      `report.py`. Report effect + CI, not p alone (state n-underpowered in BAB IV).
+- [x] **Re-ran 2×2 on the v50 test split** (n=33, 2026-07-05): hybrid+graph
+      recall@5 0.571→0.677, Δ+0.106, CI [+0.020,+0.202], Wilcoxon p=0.044, 7/1;
+      precision@5 p=0.035; dense-seed graph null (p=0.55). See RESULTS.md §0.
 - [ ] Generation metrics vs `gold_answer`: LLM-as-judge faithfulness + correctness
       (RAGAS). **Still untested axis** — graph context may improve answers even
       when ID-recall ties. Run on the test split once seeding lands.
@@ -100,7 +100,8 @@ Diagnosis (2026-07-01): seeding, not ranking, is the retrieval bottleneck —
 - [x] `eval run --hybrid/--alpha/--split` flags (commit `17ec12a`); rows stamped
       with `meta={seeding,alpha,split}`. Ran the 2×2 on test (`dense_test`,
       `hyb_test`): hybrid+graph recall@5 0.698 vs hybrid-baseline 0.521,
-      **Wilcoxon p=0.026, 6 wins / 0 losses**; dense+graph null.
+      **Wilcoxon p=0.026, 6 wins / 0 losses**; dense+graph null. *(n=16; superseded
+      by the v50 test n=33 re-run — see §2 and RESULTS.md §0.)*
 - [x] **Framing call (thesis):** hybrid is the SHARED BASELINE (2026-07-01).
       `USE_HYBRID_SEEDING` defaults ON, `GRAPH_RERANK_ALPHA`=0.10 (hybrid-tuned);
       pure-vector retained as the toggle-off ablation floor. CLAUDE.md objective
@@ -118,7 +119,8 @@ TOP_K budget; `scripts.tune_alpha` (retrieval-only, dev-swept). Dev picked
 alpha=0.15 but it is a **wash on held-out test** (recall@5 .469→.469, mrr
 .424→.440). Latency/timeout/precision problems from the append-everything version
 are fixed. Ranking is not the bottleneck — see §2a. Default `GRAPH_RERANK_ALPHA`
-left at 0.15; revisit after hybrid seeding changes the candidate pool.
+now **0.10** (hybrid-tuned; 0.15 retained for the dense ablation), frozen through
+the v50 re-split (ADR 0007) — not re-tuned, for leakage-free reporting.
 
 ## 2c. Thesis writing — started 2026-07-02
 
@@ -127,8 +129,9 @@ grounded by `docs/context-packs/`. LaTeX scaffold in `thesis/` exists but is
 untracked and secondary.
 
 - [x] Context packs `docs/context-packs/{METHODOLOGY,RESULTS,GLOSSARY}.md`.
-- [ ] **Re-sync `RESULTS.md`** whenever eval numbers change (static snapshot;
-      currently the n=16 provisional 2×2). Re-upload to the Project after.
+- [x] **Re-synced `RESULTS.md`** to the v50 test n=33 headline (2026-07-05, §0);
+      `METHODOLOGY.md` §8 + `STATUS.md` also updated. Standing task: re-sync +
+      re-upload to the Project whenever the numbers change again.
 - [ ] Draft BAB I (Pendahuluan) and BAB III (Metodologi) first — best grounded.
 - [ ] BAB II (Tinjauan Pustaka): author citations by hand — context packs carry
       NONE, to avoid fabricated references.

@@ -140,9 +140,10 @@ with `VERIFIED`. Procedure: `docs/building-eval-dataset.md`.
 
 ## Retrieval & evaluation (2026-07-01)
 
-**Dev/test split frozen** before tuning (ADR 0002): `data/ground_truth/split.json`
-(`scripts.make_split`, stratified by hop_type, seed 20260701) — **dev = 8** (3
-single, 5 multi), **test = 16** (5 single, 11 multi). Tune on dev, report on test.
+**Dev/test split frozen** (ADR 0002; re-frozen at n=50 per ADR 0007):
+`data/ground_truth/split.json` (`scripts.make_split`, stratified by hop_type,
+seed 20260701) — **dev = 17** (7 single, 10 multi), **test = 33** (14 single,
+19 multi; 8 cross-reg multi). Alpha frozen — not re-tuned after the re-split.
 
 **First full comparison (run v24, dense seeds, 24 q).** With the original
 append-only graph retriever, baseline and graph are **identical at top-5 by
@@ -168,9 +169,10 @@ not the bottleneck.**
 cutoff (e.g. Pasal 156 @174, Pasal 2 @56, Pasal 87 @64, Pasal 3 @48). The 0.6b
 embedding model recalls them but ranks them poorly; only 3/44 are truly absent.
 
-**Hybrid lexical+dense seeding (prototype, measured retrieval-only).** Dense
-top-200 pool ⊕ BM25 re-rank of the pool, fused by RRF (k=60, standard default —
-no tuning). **Generalizes to held-out test**, unlike the graph re-rank:
+**Hybrid lexical+dense seeding (n=16 prototype, retrieval-only; current v50 2×2
+is below).** Dense top-200 pool ⊕ BM25 re-rank of the pool, fused by RRF (k=60,
+standard default — no tuning). **Generalizes to held-out test**, unlike the graph
+re-rank:
 
 | metric | dense-only | hybrid (RRF) | test delta |
 |---|---|---|---|
