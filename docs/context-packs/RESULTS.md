@@ -4,12 +4,12 @@ Authoritative results for the thesis results chapter. Numbers copied verbatim
 from `data/eval_runs/` and `STATUS.md`.
 
 The eval set is now at **target size (50), all VERIFIED**, split frozen (ADR 0007).
-The v50 IR headline in §0 is the current defensible result. Still open (so keep the
-"provisional" tag in prose): test n=33 is modest, and generation-side quality
-(RAGAS) is not yet measured. Do NOT round differently or invent numbers.
+The v50 IR headline in §0 is the current defensible result. Generation-side quality
+(RAGAS) is now **run** — see §0.1. Still open (so keep the "provisional" tag in
+prose): test n=33 is modest. Do NOT round differently or invent numbers.
 
-Last synced from repo: 2026-07-05 (v50 headline in §0; §1–§7 are the superseded
-**n=16** snapshot, kept for provenance).
+Last synced from repo: 2026-07-12 (v50 IR headline §0 + RAGAS §0.1; §1–§7 are the
+superseded **n=16** snapshot, kept for provenance).
 
 ---
 
@@ -41,6 +41,50 @@ Honest reading:
 - **Soft spot:** the multi-hop slice effect is large (Δ=+0.132, CI excludes 0, 6/1)
   but Wilcoxon is only marginal (p=0.079) at n=19 — state plainly in BAB IV.
 - **Specificity mostly holds:** single-hop controls barely move (+0.071, ns).
+
+---
+
+## 0.1 Generation-side quality — RAGAS (test n=33, 2026-07-12)
+
+LLM-judge metrics over the **cached answers** in the v50 test runs
+(`hyb_test_v50.jsonl`, baseline + graph). Judge = `claude-haiku-4-5` (independent
+of the `qwen3.5:9b` generator → faithfulness/correctness are NOT self-judged);
+embeddings local (`qwen3-embedding:0.6b`). Same paired footing as IR: Wilcoxon +
+bootstrap 95% CI. Scorer `scripts/ragas_score.py`, stats `scripts/ragas_stats.py`,
+runbook `docs/ragas-eval-runbook.md`. Artifacts under
+`data/eval_runs/_reports/ragas/`.
+
+| slice | metric | baseline | graph | Δ | 95% CI | Wilcoxon p | W/L |
+|---|---|---|---|---|---|---|---|
+| all | faithfulness | 0.530 | 0.570 | +0.041 | [−0.057, +0.133] | 0.360 | 17/15 |
+| all | answer_relevancy | 0.461 | 0.538 | +0.078 | [−0.002, +0.166] | 0.179 | 16/12 |
+| all | answer_correctness | 0.523 | 0.553 | +0.029 | [−0.034, +0.091] | 0.339 | 19/14 |
+| all | context_precision | 0.543 | 0.552 | +0.010 | [−0.099, +0.127] | 0.954 | 9/15 |
+| all | context_recall | 0.752 | 0.814 | +0.062 | [−0.038, +0.170] | 0.328 | 6/5 |
+| multi | faithfulness | 0.569 | 0.637 | +0.068 | [−0.041, +0.177] | 0.215 | 11/7 |
+| multi | answer_relevancy | 0.488 | 0.584 | +0.096 | [−0.029, +0.232] | 0.286 | 11/7 |
+| multi | answer_correctness | 0.521 | 0.536 | +0.015 | [−0.057, +0.089] | 0.768 | 10/9 |
+| multi | context_precision | 0.496 | 0.459 | **−0.037** | [−0.201, +0.127] | 0.615 | 5/9 |
+| multi | context_recall | 0.645 | 0.730 | +0.085 | [−0.086, +0.272] | 0.444 | 5/5 |
+| single | context_precision | 0.607 | 0.680 | +0.073 | [−0.056, +0.225] | 0.646 | 4/6 |
+| single | context_recall | 0.897 | 0.929 | +0.032 | [+0.000, +0.095] | 0.317 | 1/0 |
+
+Honest reading:
+- Graph is **directionally ahead on all 5 overall metrics, but NONE is
+  significant** — every CI crosses 0, all p > 0.05. n=33/19/14 is under-powered for
+  the noisier LLM-judge scale; report as a *consistent trend*, not a win.
+- The lean concentrates on **multi-hop answer quality** (faithfulness +0.068,
+  answer_relevancy +0.096, context_recall +0.085) — same axis the IR recall gain
+  lives on: graph pulls in the paired cross-reg article, so answers are more
+  grounded and complete.
+- **One honest wrinkle:** multi-hop **context_precision dips −0.037** — graph
+  expansion admits some off-target articles even as it lifts recall (the classic
+  recall↑/precision↓ of expansion). ns, but state it.
+- **Controls ~flat** (single-hop): supports specificity, though context_precision
+  +0.073 leans graph slightly more than an ideal null.
+- Net: the generation-side story **corroborates the IR headline directionally and
+  does not contradict it** — graph does not hurt answer quality, and trends the
+  right way where it should (multi-hop). Not an independent significant win.
 
 ---
 
@@ -132,7 +176,7 @@ per-question + summary CSVs under `data/eval_runs/_reports/`.
 ## 7. Limitations of the current results
 
 - **Statistical power:** test n=16 is underpowered; results provisional until the
-  eval set reaches target (50).
-- **RAGAS not yet run:** generation-side quality is NOT yet measured (dep conflict;
-  answers cached for later, ideally with a non-self judge).
+  eval set reaches target (50). *(Superseded by the v50 split; §0/§0.1 are current.)*
+- **RAGAS run (§0.1):** generation-side quality now measured with an independent
+  `claude-haiku-4-5` judge — graph directionally ahead, none significant at n=33.
 - **Data issues:** OCR `O`→`0` (~0.2%), ~1,157 omnibus ID collisions remain.
