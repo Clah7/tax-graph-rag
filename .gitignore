@@ -13,6 +13,10 @@
 data/raw_pdfs/
 data/processed/
 data/chroma_db/
+# Eval run outputs are regeneratable via `eval run`; large and noisy in diffs.
+# (The RAGAS report artifacts already committed under _reports/ragas/ stay
+# tracked — .gitignore does not untrack files already in the index.)
+data/eval_runs/
 data/**/*.pdf
 data/**/*.json
 data/**/*.html
