@@ -1,0 +1,27 @@
+\chapter{METODE PENELITIAN}
+\label{bab:metode}
+
+\section{Alur Penelitian}
+
+\section{Sumber Data dan Praproses}
+% Korpus regulasi perpajakan; isu OCR O->0 pada nomor pasal.
+
+\section{Ekstraksi dan Pemodelan Graf}
+% Skema Neo4j: Regulation, Article/Pasal, Concept; relasi BELONGS_TO,
+% REFERENCES, AMENDS, DEFINES. Format ID pasal "<regulation_id>::<article_number>".
+
+\section{Tahap Seeding Bersama}
+% Kunci komparabilitas: kedua sistem melalui src/seeding.py yang sama
+% (dense ChromaDB pool + BM25 pool, difusikan dengan RRF). Setiap perbedaan
+% terukur berasal dari tahap graf saja.
+
+\section{Sistem 1 --- Baseline RAG (Hibrida)}
+
+\section{Sistem 2 --- GraphRAG (Ekspansi Graf)}
+
+\section{Rancangan Evaluasi}
+% Ground-truth eval.jsonl; pembagian train/held-out dibekukan SEBELUM tuning
+% TOP_K_VECTOR / GRAPH_HOP_DEPTH. Metrik: recall@k, dsb. Harness 2x2.
+
+\section{Lingkungan Implementasi}
+% Python, ChromaDB, Neo4j, Ollama (qwen3.5:9b, qwen3-embedding:0.6b).
