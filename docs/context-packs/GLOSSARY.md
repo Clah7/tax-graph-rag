@@ -4,7 +4,7 @@ Fixed terminology for consistent thesis writing. Use these exact terms; do not
 introduce synonyms mid-document. Bahasa Indonesia is the writing language;
 English technical terms are kept where they are standard.
 
-Last synced from repo: 2026-07-01.
+Last synced from repo: 2026-07-07.
 
 ---
 
@@ -61,4 +61,4 @@ Last synced from repo: 2026-07-01.
 |---|---|
 | **Article ID** | Format `"<regulation_id>::<article_number>"`, identical across ChromaDB, Neo4j, and gold IDs. |
 | **gold_article_ids** | Hand-labeled correct articles for an eval question. |
-| **dev / test split** | dev=8, test=16, frozen before tuning (seed 20260701). Tune on dev, report on test. |
+| **dev / test split** | dev=17, test=33, frozen before tuning (ADR 0007, seed 20260701, stratified by hop_type). Tune on dev, report on test. |

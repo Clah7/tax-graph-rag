@@ -4,7 +4,7 @@ Authoritative technical facts for writing the thesis methodology chapter.
 Grounded in the actual codebase (verified against source, not memory).
 If a fact isn't here, ASK — do not invent implementation details.
 
-Last synced from repo: 2026-07-01.
+Last synced from repo: 2026-07-07.
 
 ---
 
@@ -160,12 +160,15 @@ graph, neighbor embeddings); `rerank()` is pure-Python and alpha-dependent, so
   disiplin PNS, ketenagakerjaan, PPh 21 (incl. TER PP 58/2023 ↔ PMK 168/2023),
   natura/kenikmatan (UU HPP ↔ PP 55/2022), Bea Materai, PPh final UMKM, PPh 22
   pemungutan (UU 7/1983 ↔ PMK), fasilitas PPh penanaman modal, PDRD (UU 28/2009).
-- **Frozen split BEFORE tuning** (ADR 0002): `scripts/make_split.py`, stratified
-  by hop_type, seed 20260701 → **dev=8** (3 single, 5 multi), **test=16** (5
-  single, 11 multi). Tune on dev, report on test.
-- **Metrics:** recall@5, hit@5, MRR. RAGAS (generation-side) DEFERRED (dep
-  conflict + plan to use a judge model other than the generator to avoid
-  self-judge bias; answers are cached so it's cheap to add later).
+- **Frozen split BEFORE tuning** (re-frozen at n=50, ADR 0007): `scripts/make_split.py`,
+  stratified by hop_type, seed 20260701 → **dev=17** (7 single, 10 multi),
+  **test=33** (14 single, 19 multi; 8 cross-reg multi). Tune on dev, report on
+  test. **Alpha is frozen (0.10 hybrid / 0.15 dense) and NOT re-tuned after the
+  re-split** — leakage-free reporting. (Supersedes the old ADR 0002 dev=8/test=16.)
+- **Metrics:** recall@5, hit@5, precision@5, MRR, with paired bootstrap 95% CIs
+  (10k resamples) alongside Wilcoxon p. RAGAS (generation-side) **run** (judge
+  `claude-haiku-4-5`, independent of the qwen3.5:9b generator to avoid self-judge
+  bias; embeddings local) — see RESULTS.md §0.1.
 - **Harness** (`eval run --hybrid/--alpha/--split`): runs `dense_test` +
   `hyb_test`, paired stats (Wilcoxon / paired-t). Each run row stamped
   `meta={seeding, alpha, split}`.
